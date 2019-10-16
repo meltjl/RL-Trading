@@ -1,0 +1,28 @@
+mel_code\main.py
+
+# This is sample trading env from 01B) https://github.com/notadamking/Stock-Trading-Visualization
+# But performance is really bad. Makes 38% losses. But code uses stable_baselines and is really clean
+from env.StockTradingEnv import StockTradingEnv 
+
+# this is from xiong's code but is reallly messy. 
+# this is now renamed zxStock_env into StockEnv and try to refactor code to uses table_baselines and 01B approach of coding
+from env.StockEnv import StockEnv
+
+
+xiong's data set is just using a numpy series
+	data_3['adjcp'] = data_3['prccd'] / data_3['ajexdi']
+	train_data = data_3[(data_3.datadate > 20090000) & (data_3.datadate < 20160000)]
+
+
+temporary disable render()
+
+
+
+
+------
+echo "# RL-Trading" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git remote add origin https://github.com/meltjl/RL-Trading.git
+git push -u origin master
