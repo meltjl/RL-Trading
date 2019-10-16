@@ -1,1 +1,0 @@
-step	balance	shares_held	total_shares_sold	cost_basis	               total_sales_value	net_worth	max_net_worth	profit
