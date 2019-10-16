@@ -12,8 +12,9 @@ iteration = 0
 class StockEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, logfile, modelName, day=0, initial_investment=10000, scope=1):
+    def __init__(self, df, logfile, modelName, day=0, initial_investment=10000, scope=1, seed=7):
         super(StockEnv, self).__init__()
+
         self.dates = df.date.unique()
         self.numSecurity = numSecurity = len(df.ticker.unique())
         self.numTrainDay = len(self.dates)
@@ -47,7 +48,7 @@ class StockEnv(gym.Env):
         file.write(column)
         file.close()
 
-        self._seed()
+        self._seed(seed)
 
     def reset(self):
         self.asset_memory = [self.initial_investment]
@@ -85,14 +86,13 @@ class StockEnv(gym.Env):
         # print("action", action)
 
         self.state[index+(self.numSecurity+1)] += quantity
-        #print("B {:2.5f} unit of asset {} @ {:4.2f} = {:4.2f}".format(quantity, index, self.state[index+1], amount_spend))
+        # print("B {:2.5f} unit of asset {} @ {:4.2f} = {:4.2f}".format(quantity, index, self.state[index+1], amount_spend))
 
     def step(self, actions):
-        # print(self.day)
         self.terminal = self.day >= (self.numTrainDay-1)
-        # print(actions)
 
         if self.terminal:
+            print("In terminal")
             fig, ax = plt.subplots()
             ax.set_title('line plot with data points')
             ax.set_ylabel('Total Asset $')
@@ -152,16 +152,16 @@ class StockEnv(gym.Env):
         return self.state, self.reward, self.terminal, {}
 
     def render(self, mode='human'):
-        print("Step: {:05} | Cash: {:8.2f} | Portfolio: {:8.2f} | Reward: {:>4.2f}".format(
-            self.day, self.state[0], self.asset_memory[-1], self.reward))
+        print("Step: {:05} | Date : {} | Cash: {:8.2f} | Portfolio: {:8.2f} | Reward: {:>4.2f}".format(
+            self.day, self.dates[self.day], self.state[0], self.asset_memory[-1], self.reward))
 
         line = '\n{}, {},{},{},{},{},'.format(self.modelName, self.day, str(
             self.dates[self.day]), self.state[0], self.asset_memory[-1], self.reward)
 
         prices = str(self.state[1:(self.numSecurity+1)]).strip('[]')
         qty = str(self.state[(self.numSecurity+1):]).strip('[]')
-
         self.ledger.append(line + prices + ',' + qty)
+
         return self.state
 
     def _seed(self, seed=None):

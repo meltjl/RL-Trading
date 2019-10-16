@@ -1,16 +1,24 @@
 
 
-## Libraries
-See file _requirements.txt
+# Libraries
+## Create virtual environment
+$ python3 -m venv RL_Trading
+
+## activate environment
+$ source RL_Trading/bin/activate
+
+## install requirement file
+(RL_Trading) $ pip install -r requirements.txt
 
 
 
-## Runnign the code
+## Running the code
 Steps to run:
-1. Type in python main.py. The deualt model is PPO2 and using portfolio1
-    (mel) ubuntoo@ubuntoo:/mnt/share/Code/mel$ python main.py
+1. Type in python main.py. The defualt model is PPO2 and using portfolio1
+    <pre>$ python main.py</pre>
 
 2. To select other data, edit to config.json to configure the combination of assets and dates
+<pre
     {
     	"api" : xxxxx,
     	"portfolios": [{
@@ -29,16 +37,11 @@ Steps to run:
     		}
     	]
     }
+</pre>
 
 3. To run specific portfolio by different algorithm. See below. Note index starts from zero.
     a) To use portfolio2 using PPO2 :
-    (mel) ubuntoo@ubuntoo:/mnt/share/Code/mel$ python main.py -m PPO2 -p 1
+    <pre>$ python main.py -m PPO2 -p 1</pre>
 
     b) To use portfolio1 using DDPG :
-    (mel) ubuntoo@ubuntoo:/mnt/share/Code/mel$ python main.py -m DDPG -p 0
-
-
-
-
-
-
+    <pre>$ python main.py -m DDPG -p0</pre>

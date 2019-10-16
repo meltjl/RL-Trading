@@ -1,4 +1,4 @@
-__pycache__/
-data/*.csv
+env/__pycache__/
 *.txt
+!_requirements.txt
 log/*.*

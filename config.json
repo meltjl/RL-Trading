@@ -1,7 +1,7 @@
 {
 	"api" : "9oRszTuZ2ymAxAp8cCnd",
 	"portfolios": [{
-			"name": "portfolio1",
+			"name": "portfolio0",
 			"desc" : "small dataset to test TimeSeriesSplit",
 			"asset": ["IBM", "GE"],
 			"start_date": "2018-03-20",
@@ -9,20 +9,29 @@
 			"commission_fee": "1e-5"
 		},
 		{
+			"name": "portfolio1",
+			"desc" : "Simple dataset",
+			"asset": ["MSFT, APL"],
+			"start_date": "1998-01-02",
+			"end_date": "2018-11-16",
+			"commission_fee": "1e-5"
+		},
+		{
 			"name": "portfolio2",
-			"desc" : "full dataset - breaks as ABT & MMM has missing data. need to fix",
-			"asset": ["IBM", "GE", "BA", "MMM", "ABT", "CA"],
+			"desc" : "full dataset",
+			"asset": ["IBM", "GE", "BA", "CA"],
 			"start_date": "2000-01-01",
 			"end_date": "None",
 			"commission_fee": "1e-5"
 		},
 		{
 			"name": "portfolio3",
-			"desc" : "full dataset",
-			"asset": ["IBM", "GE", "BA", "CA"],
+			"desc" : "full dataset - breaks as ABT & MMM has missing data. need to fix",
+			"asset": ["IBM", "GE", "BA", "MMM", "ABT", "CA"],
 			"start_date": "2000-01-01",
 			"end_date": "None",
 			"commission_fee": "1e-5"
 		}
+
 	]
 }
