@@ -41,12 +41,14 @@ class StockEnv(gym.Env):
         print('action_space :\t', self.action_space)
 
         # write column header
-        file = open(self.logfile, 'w+')
-        ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
-        aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
-        column = 'model, step, date, cash, portfolio, reward,' + ','.join(ap) + ',' + ','.join(aq)
-        file.write(column)
-        file.close()
+        if 1 == 0:
+            file = open(self.logfile, 'w+')
+            ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
+            aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
+            column = 'model, step, date, cash, portfolio, reward,' + \
+                ','.join(ap) + ',' + ','.join(aq)
+            file.write(column)
+            file.close()
 
         self._seed(seed)
 
@@ -112,8 +114,8 @@ class StockEnv(gym.Env):
             print("% Returns:\t\t{:8.2f}%".format((portfolio_value/self.initial_investment-1)*100))
             print("***************")
 
-            file = open(self.logfile, 'a+')
-            file.write(','.join(self.ledger))
+            #file = open(self.logfile, 'a+')
+            # file.write(','.join(self.ledger))
 
             return self.state, self.reward, self.terminal, {}
 

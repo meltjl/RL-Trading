@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import pandas as pd
 import sys
+import csv
 import os
 import csv
 import json
@@ -30,7 +31,8 @@ from stable_baselines.common.policies import MlpPolicy
 
 # tf.set_random_seed(42)
 seed = 42
-lr = 1e-3
+lr = 0.01
+learningRates = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
 set_global_seeds(seed)
 np.random.seed(seed)
 
@@ -52,75 +54,6 @@ LEARN_FUNC_DICT = {
     'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=1.5e-3, lam=0.8).learn(total_timesteps=20000, seed=seed),
     'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7).learn(total_timesteps=10000, seed=seed),
 }
-
-
-def dataPrep(file, cutoff_date, dateparse):
-    # xiong data prep
-    # simple split data into train & test by date
-    df = pd.read_csv(file, parse_dates=['Date'], date_parser=dateparse)
-    columns = ['Date', 'Tic', 'Open', 'High', 'Low', 'Close', 'Volume']
-    train = df.loc[df['Date'] < cutoff_date, columns]
-    test = df.loc[df['Date'] >= cutoff_date, columns]
-
-    # sort by date and tic
-    train = train.sort_values(by=['Date', 'Tic'])
-    test = test.sort_values(by=['Date', 'Tic'])
-
-    numSecurity = len(train.Tic.unique())
-    print("Number of security in TRAIN")
-    print(numSecurity, train.Tic.unique())
-    print("Train shape | Min | Max date : ", train.shape, "\t|",
-          train.Date.min(), "|", train.Date.max())
-
-    print("\nNumber of security in TEST")
-    print(numSecurity, test.Tic.unique())
-    print("Test shape  | Min | Max date : ", test.shape, "\t|",
-          test.Date.min(), "|", test.Date.max())
-
-    # !!! TO DO
-    # detrend / normalize !!!!!!!
-    return train, test
-
-
-def train(train, env):
-    # The algorithms require a vectorized environment to run
-    env = DummyVecEnv([lambda: env])
-    print('observation_space :\t', env.observation_space)
-    print('action_space :\t', env.action_space)
-
-    model = PPO2(MlpPolicy, env, verbose=1)
-    model.learn(total_timesteps=50)
-
-    obs = env.reset()
-
-    # write columsn header
-    filename = 'render.txt'
-    file = open(filename, 'w+')
-    file.write('step\tbalance\tshares_held\ttotal_shares_sold\tcost_basis\t\
-               total_sales_value\tnet_worth\tmax_net_worth\tprofit')
-    file.close()
-
-    # for i in range(10):
-    # env.render()
-    episode_rewards = [0.0]
-    episodes = len(np.unique(train['date']))
-    for i in range(episodes):
-        action, _states = model.predict(obs)
-        obs, rewards, done, info = env.step(action)
-
-        # 20190927 - temporary disable. need to fix render in StockEnv.py
-        # env.render(title="MSFT")
-        # env.render(title="MSFT", mode='file', filename=filename)
-        env.render()
-        # Stats
-        episode_rewards[-1] += rewards
-        if done:
-            obs = env.reset()
-
-    episode_rewards.append(0.0)
-    # Compute mean reward for the last 100 episodes
-    mean_100ep_reward = np.mean(episode_rewards[-100:])
-    print("Mean reward:", mean_100ep_reward, "Num episodes:", len(episode_rewards))
 
 
 def evaluate(model, num_steps=1000):
@@ -233,191 +166,57 @@ def _get_indicators(security, open_name, close_name, high_name, low_name, volume
     return security
 
 
-def main_bak(argv):
-    inputfile = ''
-    outputfile = ''
-
-    try:
-        opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
-    except getopt.GetoptError:
-        print('main.py -i <inputfile> -o <outputfile>')
-        sys.exit(2)
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print('main.py -i <inputfile> -o <outputfile>')
-            sys.exit()
-        elif opt in ("-i", "--ifile"):
-            inputfile = arg
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-    print('Input file is "', inputfile)
-
-    # assume file open is successful
-    inputfile = 'data/mel_DJ.csv'
-    # train_df, test_df = dataPrep(inputfile, '2016-01-01', dateparse1)
-
-    # losses-38%
-    inputfile = 'data/mel_MSFT-AAPL.csv'
-    train_df, test_df = dataPrep(inputfile, '1998-01-10', dateparse2)
-
-    # train_df, test_df = dataPrep(inputfile, '2016-01-10', dateparse2)
-    # choose environment
-    # env = StockTradingEnv(train_df)
-    env = StockEnv(train_df)
-
-    train(train_df, env)
-
-
-def main2(argv):
-
-    try:
-        opts, args = getopt.getopt(argv, "hm:o:", ["model=", "ofile="])
-    except getopt.GetoptError:
-        print('main.py -m <model> ')
-        sys.exit(2)
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print('main.py -m <model> -o <ofile>')
-            sys.exit()
-        elif opt in ("-o", "--ofile"):
-            model_name = arg
-        elif opt in ("-m", "--mfile"):
-            model_name = arg
-
-    with open('./config.json', 'r') as f:
-        config = json.load(f)
-
-    df = get_data(config, portfolio=1, refreshData=False)
-
-    # temp hard code model
-    # model_name = 'ppo2'
-
-    # assume file open is successful
-    inputfile = 'data/mel_DJ.csv'
-    timestamp = datetime.now().strftime("%Y%m%d %H%M%s")
-    logfile = 'log/mel_DJ_log_' + model_name + '_' + timestamp + '.csv'
-    # train_df, test_df = dataPrep(inputfile, '2016-01-01', dateparse1)
-
-    inputfile = 'data/mel_MSFT-AAPL.csv'
-    logfile = 'log/mel_MSFT-AAPL_log_' + model_name + '_' + timestamp + '.csv'
-    # train_df, test_df = dataPrep(inputfile, '1998-01-31', dateparse2)
-    train_df, test_df = dataPrep(inputfile, '2018-01-10', dateparse2)
-
-    # choose environment
-    # env = StockTradingEnv(train_df)
-
-    # add noise
-    # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    n_actions = 1
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-
-    # The algorithms require a vectorized environment to run
-    global env
-    set_global_seeds(0)
-
-    env = DummyVecEnv([lambda: StockEnv(train_df, logfile, model_name)])
-    # model = PPO2(MlpPolicy, env, verbose=1)
-    model = LEARN_FUNC_DICT[model_name](env)
-    # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
-
-    # Random Agent, before training
-    steps = len(np.unique(train_df['Date']))
-    # before = evaluate(model, num_steps=10)
-
-    # let model learn
-    print("*** Set agent loose to learn ***")
-    model.learn(total_timesteps=round(steps))
-
-    # Save the agent
-    # model.save("model/" + model_name + timestamp)
-
-    # delete trained model to demonstrate loading. This also frees up memory
-    # del model
-
-    # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
-    # model = PPO2.load("model/" + model_name + timestamp)
-
-    print("*** Evaluate the trained agent ***")
-    after = evaluate(model, num_steps=steps)
-    # print("before | after:", before, after)
-
-
 '''
-policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy, 'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
+policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
+    'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
 model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
     lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
     learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
                  '''
 
 
-def mainSplit(argv):
-    try:
-        opts, args = getopt.getopt(
-            argv, "hm:o:p:r:", ["model=PPO2", "portfolio=", "refreshData=True", "ofile="])
-    except getopt.GetoptError:
-        print('main.py')
-        sys.exit(2)
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print('python main.py -m ppo2 -o <ofile>')
-            sys.exit()
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-        elif opt in ("-m", "--mfile"):
-            model_name = arg
-        elif opt in ("-p", "--portfolio"):
-            portfolio = int(arg)
-        elif opt in ("-r", "--refreshData"):
-            refreshData = arg
-
-    with open('./config.json', 'r') as f:
-        config = json.load(f)
-
-    model_name = "ppo2"
-    refreshData = 0
-    portfolio = 0
-    #cutoff_date = '2017-01-01'
+def TrainWith_BackTest(config, model_name, refreshData, portfolio):
 
     df = get_data(config, portfolio=portfolio, refreshData=refreshData)
     print(df.head())
     print(df.info())
 
-    # The algorithms require a vectorized environment to run
-    global env
-
     # ref https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html
     split = 4
     splits = TimeSeriesSplit(n_splits=split)
-    loop = 0
     before = np.zeros(split)
     after = np.zeros(split)
+    backtest = np.zeros(split)
     train_dates = np.empty(split, dtype="datetime64[s]")
     test_dates = np.empty(split, dtype="datetime64[s]")
+    timestamp = datetime.now().strftime("%Y%m%d %H%M%s")
 
+    # for lr in [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]:
+    # for s in np.random.randint(0,5):
+    # for lr in [1e-1, 1e-3, 1e-5]:
+    # for lr in [1e-1, 1e-2]:
+
+    loop = 0
     for train_index, test_index in splits.split(df.values):
         print("loop", loop)
 
         # print("\ntrain | test index", train_index, test_index)
+
         train = df.iloc[train_index, ]
         test = df.iloc[test_index, ]
         timestamp = datetime.now().strftime("%Y%m%d %H%M%s")
         logdir = "./log/"
-        logfile = logdir + config["portfolios"][portfolio]["name"] + \
-            "_" + model_name + "_" + timestamp + ".csv"
-
+        logfile = logdir + config["portfolios"][portfolio]["name"]
+        uniqueTrainId = model_name + "_" + timestamp + "_Train" + str(loop)
         train_dates[loop] = max(train.date)
-        # test_dates[loop] = (min(test.date), max(test.date))
+        test_dates[loop] = max(test.date)
 
-        print("train: start | end | no Tickers |", min(train.date),
-              max(train.date), "|", len(train.ticker.unique()))
-        print("test : start | end | no Tickers |", min(test.date),
-              max(test.date), "|", len(test.ticker.unique()))
+        # print("train: start | end | no Tickers |", min(train.date),
+        #      max(train.date), "|", len(train.ticker.unique()))
+        # print("test : start | end | no Tickers |", min(test.date),
+        #      max(test.date), "|", len(test.ticker.unique()))
 
-        print(train_dates[loop])
+        # print(train_dates[loop])
         train_step = len(train_index)
         # test_step = len(test_step)
         # print(train_step, test_step)
@@ -428,9 +227,11 @@ def mainSplit(argv):
         # add noise
         # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
         n_actions = 1
-        action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-
-        env = DummyVecEnv([lambda: StockEnv(train, logfile, model_name)])
+        action_noise = NormalActionNoise(mean=np.zeros(
+            n_actions), sigma=0.1 * np.ones(n_actions))
+        global env
+        env = DummyVecEnv(
+            [lambda: StockEnv(train, logfile + "_" + uniqueTrainId + ".csv", model_name)])
 
         # Automatically normalize the input features
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
@@ -440,20 +241,21 @@ def mainSplit(argv):
         # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
         # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
 
-        model = PPO2(MlpPolicy, env, verbose=1, learning_rate=0.1)
+        model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
 
         # Random Agent, before training
-        print("random agent")
+        print("*** Agent before learning ***")
         steps = len(np.unique(train.date))
-        # steps = len(train_index)
         before[loop] = evaluate(model, num_steps=steps)
 
-        # let model learn
-        print("*** Set agent loose to learn ***")
+        print("*** Set agent to learn ***")
         model.learn(total_timesteps=round(steps))
 
+        print("*** Evaluate the trained agent ***")
+        after[loop] = evaluate(model, num_steps=steps)
+
         # Save the agent
-        # model.save("model/" + model_name + timestamp)
+        # model.save("model/" + uniqueId)
 
         # delete trained model to demonstrate loading. This also frees up memory
         # del model
@@ -461,49 +263,42 @@ def mainSplit(argv):
         # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
         # model = PPO2.load("model/" + model_name + timestamp)
 
-        print("*** Evaluate the trained agent ***")
-        after[loop] = evaluate(model, num_steps=steps)
+        print("*** Run agent on unseen data ***")
+        uniqueTestId = model_name + "_" + timestamp + "_BackTest" + str(loop)
+
+        env = DummyVecEnv(
+            [lambda: StockEnv(test, logfile + "_" + uniqueTestId + ".csv", uniqueTestId)])
+
+        # Automatically normalize the input features
+        env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
+        steps = len(np.unique(test.date))
+        backtest[loop] = evaluate(model, num_steps=steps)
+
         loop += 1
 
     for i in range(split):
         print("\ntrain_dates:", min(df.date), train_dates[i])
-        print("backtest {} : before | after : {: 8.2f} | {: 8.2f}".format(i, before[i], after[i]))
+        print("backtest {} : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
+            i, before[i], after[i], backtest[i]))
+
+    data = pd.DataFrame({"timestamp": timestamp, "Model": model_name,  "Seed": seed, "learningRate": lr,
+                         "backtest  # ": np.arange(split), "StartTrainDate": min(train.date),
+                         "EndTrainDate": train_dates, "before": before,
+                         "after": after, "testDate": test_dates, "roadTest": backtest})
+    data.head()
+    with open('summary.csv', 'a') as f:
+        data.to_csv(f, header=True)
+        # data.to_csv(f, header=False)
 
 
-def mainOK(argv):
-    try:
-        opts, args = getopt.getopt(
-            argv, "hm:o:p:r:", ["model=PPO2", "portfolio=", "refreshData=True", "ofile="])
-    except getopt.GetoptError:
-        print('main.py')
-        sys.exit(2)
-
+def TrainSingle(config):
     model_name = "ppo2"
     refreshData = 0
     portfolio = 0
-    cutoff_date = '2017-01-01'
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print('python main.py -m ppo2 -o <ofile>')
-            sys.exit()
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-        elif opt in ("-m", "--mfile"):
-            model_name = arg
-        elif opt in ("-p", "--portfolio"):
-            portfolio = int(arg)
-        elif opt in ("-r", "--refreshData"):
-            refreshData = arg
-
-    with open('./config.json', 'r') as f:
-        config = json.load(f)
 
     df = get_data(config, portfolio=portfolio, refreshData=refreshData)
     print(df.head())
     print(df.info())
-
-    # print("\ntrain | test index", train_index, test_index)
 
     train = df.loc[df['date'] < cutoff_date, ]
     test = df.loc[df['date'] >= cutoff_date, ]
@@ -523,17 +318,13 @@ def mainOK(argv):
     n_actions = 3
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
 
-    # The algorithms require a vectorized environment to run
-    global env
-    set_global_seeds(0)
-
     env = DummyVecEnv([lambda: StockEnv(train, logfile, model_name, seed=seed)])
-    #env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
+    # env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
     # model = PPO2(MlpPolicy, env, verbose=1)
     # model = LEARN_FUNC_DICT[model_name](env)
     # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    #model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
+    # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
 
     model = PPO2(MlpPolicy, env, verbose=1)
 
@@ -565,59 +356,37 @@ def mainOK(argv):
           max(test.date), "|", len(test.ticker.unique()))
 
 
-def bak():
+def chkArgs(argv):
+    try:
+        opts, args = getopt.getopt(
+            argv, "hm:o:p:r:", ["model=PPO2", "portfolio=", "refreshData=True", "ofile="])
+    except getopt.GetoptError:
+        print('main.py')
+        sys.exit(2)
 
-        # assume file open is successful
-    inputfile = 'data/mel_DJ.csv'
-    timestamp = datetime.now().strftime("%Y%m%d %H%M%s")
-    logfile = 'log/mel_DJ_log_' + model_name + '_' + timestamp + '.csv'
-    # train_df, test_df = dataPrep(inputfile, '2016-01-01', dateparse1)
+    model_name = "ppo2"
+    refreshData = 0
+    portfolio = 0
 
-    inputfile = 'data/mel_MSFT-AAPL.csv'
-    logfile = 'log/mel_MSFT-AAPL_log_' + model_name + '_' + timestamp + '.csv'
-    # train_df, test_df = dataPrep(inputfile, '1998-01-31', dateparse2)
-    train_df, test_df = dataPrep(inputfile, '2018-01-10', dateparse2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print('python main.py -m ppo2 -o <ofile>')
+            sys.exit()
+        elif opt in ("-o", "--ofile"):
+            outputfile = arg
+        elif opt in ("-m", "--mfile"):
+            model_name = arg
+        elif opt in ("-p", "--portfolio"):
+            portfolio = int(arg)
+        elif opt in ("-r", "--refreshData"):
+            refreshData = arg
 
-    # choose environment
-    # env = StockTradingEnv(train_df)
+    with open('./config.json', 'r') as f:
+        config = json.load(f)
 
-    # add noise
-    # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    n_actions = 1
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-
-    # The algorithms require a vectorized environment to run
-    global env
-    set_global_seeds(0)
-
-    env = DummyVecEnv([lambda: StockEnv(train_df, logfile, model_name)])
-    # model = PPO2(MlpPolicy, env, verbose=1)
-    model = LEARN_FUNC_DICT[model_name](env)
-    # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
-
-    # Random Agent, before training
-    steps = len(np.unique(train_df['Date']))
-    # before = evaluate(model, num_steps=10)
-
-    # let model learn
-    print("*** Set agent loose to learn ***")
-    model.learn(total_timesteps=round(steps))
-
-    # Save the agent
-    # model.save("model/" + model_name + timestamp)
-
-    # delete trained model to demonstrate loading. This also frees up memory
-    # del model
-
-    # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
-    # model = PPO2.load("model/" + model_name + timestamp)
-
-    print("*** Evaluate the trained agent ***")
-    after = evaluate(model, num_steps=steps)
-    # print("before | after:", before, after)
+    # TrainSingle(df)
+    TrainWith_BackTest(config, model_name, refreshData, portfolio)
 
 
 if __name__ == "__main__":
-    # mainOK(sys.argv[1:])
-    mainSplit(sys.argv[1:])
+    chkArgs(sys.argv[1:])
