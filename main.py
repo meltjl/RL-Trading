@@ -28,6 +28,12 @@ from stable_baselines.common.policies import MlpPolicy
 
 # this is from xiong's code. renamed zxStock_env into StockEnv but use stable_baselines concept as per 01B paper
 
+# tf.set_random_seed(42)
+seed = 42
+lr = 1e-3
+set_global_seeds(seed)
+np.random.seed(seed)
+
 
 def dateparse1(x): return pd.datetime.strptime(x, '%Y%m%d')
 
@@ -37,14 +43,14 @@ def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
 
 # Hyperparameters for learning identity for each RL model
 LEARN_FUNC_DICT = {
-    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=1e-3, n_steps=1, gamma=0.7, env=e).learn(total_timesteps=10000, seed=0),
-    'acer': lambda e: ACER(policy="MlpPolicy", env=e, n_steps=1, replay_ratio=1).learn(total_timesteps=15000, seed=0),
-    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1).learn(total_timesteps=20000, seed=0),
-    'dqn': lambda e: DQN(policy="MlpPolicy", batch_size=16, gamma=0.1, exploration_fraction=0.001, env=e).learn(total_timesteps=40000, seed=0),
+    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e).learn(total_timesteps=10000, seed=seed),
+    'acer': lambda e: ACER(policy="MlpPolicy", env=e, n_steps=1, replay_ratio=1).learn(total_timesteps=15000, seed=seed),
+    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1).learn(total_timesteps=20000, seed=seed),
+    'dqn': lambda e: DQN(policy="MlpPolicy", batch_size=16, gamma=0.1, exploration_fraction=0.001, env=e).learn(total_timesteps=40000, seed=seed),
     'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5,
-                           optim_batchsize=16, optim_stepsize=1e-3).learn(total_timesteps=15000, seed=0),
-    'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=1.5e-3, lam=0.8).learn(total_timesteps=20000, seed=0),
-    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7).learn(total_timesteps=10000, seed=0),
+                           optim_batchsize=16, optim_stepsize=1e-3).learn(total_timesteps=15000, seed=seed),
+    'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=1.5e-3, lam=0.8).learn(total_timesteps=20000, seed=seed),
+    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7).learn(total_timesteps=10000, seed=seed),
 }
 
 
@@ -124,8 +130,8 @@ def evaluate(model, num_steps=1000):
     print('observation_space :\t', env.observation_space)
     print('action_space :\t', env.action_space)
 
-    env.render()
-    set_global_seeds(0)
+    # env.render()
+
     for i in range(num_steps):
         action, _states = model.predict(obs)
         obs, rewards, done, info = env.step(action)
@@ -339,6 +345,14 @@ def main2(argv):
     # print("before | after:", before, after)
 
 
+'''
+policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy, 'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
+model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
+    lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
+    learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
+                 '''
+
+
 def mainSplit(argv):
     try:
         opts, args = getopt.getopt(
@@ -346,11 +360,6 @@ def mainSplit(argv):
     except getopt.GetoptError:
         print('main.py')
         sys.exit(2)
-
-    model_name = "ppo2"
-    refreshData = 0
-    portfolio = 0
-    cutoff_date = '2017-01-01'
 
     for opt, arg in opts:
         if opt == '-h':
@@ -367,6 +376,11 @@ def mainSplit(argv):
 
     with open('./config.json', 'r') as f:
         config = json.load(f)
+
+    model_name = "ppo2"
+    refreshData = 0
+    portfolio = 0
+    #cutoff_date = '2017-01-01'
 
     df = get_data(config, portfolio=portfolio, refreshData=refreshData)
     print(df.head())
@@ -506,20 +520,20 @@ def mainOK(argv):
 
     # add noise
     # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    n_actions = 1
+    n_actions = 3
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
 
     # The algorithms require a vectorized environment to run
     global env
     set_global_seeds(0)
 
-    env = DummyVecEnv([lambda: StockEnv(train, logfile, model_name, seed=7)])
-    env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
+    env = DummyVecEnv([lambda: StockEnv(train, logfile, model_name, seed=seed)])
+    #env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
     # model = PPO2(MlpPolicy, env, verbose=1)
     # model = LEARN_FUNC_DICT[model_name](env)
     # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-    # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
+    #model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
 
     model = PPO2(MlpPolicy, env, verbose=1)
 
@@ -541,9 +555,9 @@ def mainOK(argv):
     # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
     # model = PPO2.load("model/" + model_name + timestamp)
 
-    #print("*** Evaluate the trained agent ***")
-    #after = evaluate(model, num_steps=steps)
-    #print("before | after:", before, after)
+    print("*** Evaluate the trained agent ***")
+    after = evaluate(model, num_steps=steps)
+    print("before | after:", before, after)
 
     print("train: start | end | no Tickers |", min(train.date), "|",
           max(train.date), "|", len(train.ticker.unique()))
@@ -605,4 +619,5 @@ def bak():
 
 
 if __name__ == "__main__":
-    mainOK(sys.argv[1:])
+    # mainOK(sys.argv[1:])
+    mainSplit(sys.argv[1:])

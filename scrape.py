@@ -1,3 +1,5 @@
+import talib
+import csv
 import os
 import math
 import datetime
@@ -12,6 +14,9 @@ import numpy as np
 import json
 with open('./config.json', 'r') as f:
     config = json.load(f)
+sample = config["portfolios"][0]
+print(sample["name"])
+
 
 quandl.ApiConfig.api_key = config["api"]
 
@@ -32,14 +37,32 @@ for i in range(len(config["portfolios"]) - 1):
         stocks[k] = group[columns[-5:]]
     #market_data = pd.Panel(stocks).fillna(method='ffill').fillna(method='bfill')
 
-    try:
-        with open('/data/' + sample["name"]+".csv", 'w') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=colummns)
-            writer.writeheader()
-            for data in dict_data:
-                writer.writerow(data)
-    except IOError:
-        print("I/O error")
+
+file = "/mnt/share/Code/mel_code/data/portfolio1.csv"
+df = pd.read_csv(file).fillna(method='ffill').fillna(method='bfill')
+df.sort_values(by=['date', "ticker"])
+print(df.values)
+
+
+dict_data = [
+    {'No': 1, 'Name': 'Alex', 'Country': 'India'},
+    {'No': 2, 'Name': 'Ben', 'Country': 'USA'},
+    {'No': 3, 'Name': 'Shri Ram', 'Country': 'India'}]
+
+df = pd.DataFrame(dict_data)
+df['MOM'] = talib.MOM(df["No"])
+print(df.head())
+
+
+print(os.getcwd() + "\n")
+try:
+    with open("./data/xxx.csv", 'w') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=['No', 'Name', 'Country'])
+        writer.writeheader()
+        for data in dict_data:
+            writer.writerow(data)
+except IOError:
+    print("I/O error")
 
 
 #dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -63,6 +86,11 @@ regex = ".+(\\.+)$"
 
 total_reward = 100
 print(math.exp(total_reward) * 100)
+
+
+train_dates = np.empty(4, dtype="datetime64[s]")
+print(train_dates)
+
 
 '''
 def main(argv):
