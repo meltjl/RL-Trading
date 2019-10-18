@@ -33,7 +33,7 @@
 			"commission_fee": "1e-5"
 		},
 		{
-			"name": "russian",
+			"name": "yandex",
 			"desc" : "1 minutes russian data",
 			"asset": ["YANDEX"],
 			"start_date": "2016-01-01",

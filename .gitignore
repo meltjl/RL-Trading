@@ -4,3 +4,10 @@ config.json.bak
 !_requirements.txt
 log/*.*
 image/*.*
+data/*.*
+
+
+
+scrape.py
+*.csv
+seed_result.txt
