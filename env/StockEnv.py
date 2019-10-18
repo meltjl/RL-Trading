@@ -41,7 +41,7 @@ class StockEnv(gym.Env):
         print('action_space :\t', self.action_space)
 
         # write column header
-        if 1 == 0:
+        if 1 == 1:
             file = open(self.logfile, 'w+')
             ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
             aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
@@ -94,13 +94,12 @@ class StockEnv(gym.Env):
         self.terminal = self.day >= (self.numTrainDay-1)
 
         if self.terminal:
-            print("In terminal")
             fig, ax = plt.subplots()
-            ax.set_title('line plot with data points')
+            ax.set_title(self.modelName)
             ax.set_ylabel('Total Asset $')
             ax.set_xlabel('Episode')
             ax.plot(self.asset_memory, color='tomato')
-            plt.savefig('image/iteration_{}.png'.format(iteration))
+            plt.savefig('image/{}.png'.format(self.modelName))
             plt.close()
 
             print("**** Summary*****")
@@ -114,8 +113,8 @@ class StockEnv(gym.Env):
             print("% Returns:\t\t{:8.2f}%".format((portfolio_value/self.initial_investment-1)*100))
             print("***************")
 
-            #file = open(self.logfile, 'a+')
-            # file.write(','.join(self.ledger))
+            file = open(self.logfile, 'a+')
+            file.write(','.join(self.ledger))
 
             return self.state, self.reward, self.terminal, {}
 

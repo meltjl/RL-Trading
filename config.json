@@ -1,5 +1,5 @@
 {
-	"api" : "9oRszTuZ2ymAxAp8cCnd",
+	"api" : "xxx",
 	"portfolios": [{
 			"name": "portfolio0",
 			"desc" : "small dataset to test TimeSeriesSplit",
@@ -29,6 +29,14 @@
 			"desc" : "full dataset - breaks as ABT & MMM has missing data. need to fix",
 			"asset": ["IBM", "GE", "BA", "MMM", "ABT", "CA"],
 			"start_date": "2000-01-01",
+			"end_date": "None",
+			"commission_fee": "1e-5"
+		},
+		{
+			"name": "russian",
+			"desc" : "1 minutes russian data",
+			"asset": ["YANDEX"],
+			"start_date": "2016-01-01",
 			"end_date": "None",
 			"commission_fee": "1e-5"
 		}

@@ -1,4 +1,6 @@
+config.json.bak
 *.*/__pycache__/*.*
 *.txt
 !_requirements.txt
 log/*.*
+image/*.*

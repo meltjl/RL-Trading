@@ -46,9 +46,11 @@ def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
 # Hyperparameters for learning identity for each RL model
 LEARN_FUNC_DICT = {
     'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
-    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
-    'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
-    'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
+    # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
+    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
+    # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
+    # 'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
+    'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr),
     'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
     'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
 }
@@ -70,7 +72,7 @@ def evaluate(model, num_steps=1000):
         # 20190927 - temporary disable. need to fix render in StockEnv.py
         # env.render(title="MSFT")
         # env.render(title="MSFT", mode='file', filename=filename)
-        # env.render()
+        env.render()
 
         # Stats
         episode_rewards[-1] += rewards
@@ -164,15 +166,6 @@ def _get_indicators(security, open_name, close_name, high_name, low_name, volume
     return security
 
 
-'''
-policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
-    'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
-model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
-    lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
-    learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
-                 '''
-
-
 def TrainWith_BackTest(algo, df, model_name, portfolio_name):
 
     # ref https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html
@@ -198,7 +191,7 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name):
         timestamp = datetime.now().strftime("%Y%m%d %H%M%s")
         logdir = "./log/"
         logfile = logdir + portfolio_name
-        uniqueTrainId = model_name + "_" + timestamp + "_Train" + str(loop)
+        uniqueTrainId = model_name + "_" + portfolio_name + "_" + timestamp + "_Train" + str(loop)
         train_dates[loop] = max(train.date)
         test_dates[loop] = max(test.date)
 
@@ -212,15 +205,15 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name):
             n_actions), sigma=0.1 * np.ones(n_actions))
         global env
         env = DummyVecEnv(
-            [lambda: StockEnv(train, logfile + "_" + uniqueTrainId + ".csv", model_name)])
+            [lambda: StockEnv(train, logfile + "_" + uniqueTrainId + ".csv", uniqueTrainId)])
 
         # Automatically normalize the input features
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
         # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-        model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
+        #model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
         #model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
-        #model = algo(MlpPolicy, env, verbose=1)
+        model = algo(MlpPolicy, env, verbose=1)
 
         # Random Agent, before training
         print("*** Agent before learning ***")
@@ -243,7 +236,7 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name):
         # model = PPO2.load("model/" + model_name + timestamp)
 
         print("*** Run agent on unseen data ***")
-        uniqueTestId = model_name + "_" + timestamp + "_BackTest" + str(loop)
+        uniqueTestId = model_name + "_" + portfolio_name + "_" + timestamp + "_Train" + str(loop)
         env = DummyVecEnv(
             [lambda: StockEnv(test, logfile + "_" + uniqueTestId + ".csv", uniqueTestId)])
 
@@ -260,7 +253,7 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name):
         print("backtest {} : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
             i, before[i], after[i], backtest[i]))
 
-    data = pd.DataFrame({"timestamp": timestamp, "Model": uniqueTrainId,  "Seed": seed, "learningRate": lr,
+    data = pd.DataFrame({"timestamp": timestamp, "Model": model_name + "_" + portfolio_name,  "Seed": seed, "learningRate": lr,
                          "backtest  # ": np.arange(split), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
                          "after": after, "testDate": test_dates, "roadTest": backtest})
@@ -345,7 +338,7 @@ def chkArgs(argv):
 
     model_name = "ppo2"
     refreshData = 0
-    portfolio = 0
+    portfolio = 1
 
     for opt, arg in opts:
         if opt == '-h':
@@ -367,23 +360,55 @@ def chkArgs(argv):
     print(df.head())
     print(df.info())
 
-    portfolio_name = config["portfolios"][portfolio]["name"]
+    '''
+    policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
+        'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
+    model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
+        lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
+        learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
+                     '''
 
+    portfolio_name = config["portfolios"][portfolio]["name"]
     model_name = "PPO2"
     algo = PPO2
     TrainWith_BackTest(algo, df, model_name, portfolio_name)
 
     model_name = "DDPG"
     algo = DDPG
-    TrainWith_BackTest(algo, df, model_name, portfolio_name)
+    #TrainWith_BackTest(algo, df, model_name, portfolio_name)
 
     model_name = "ACKTR"
     algo = ACKTR
-    #TrainWith_BackTest(algo, df, model_name, portfolio_name)
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
 
     model_name = "A2C"
     algo = A2C
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
+
+    model_name = "TRPO"
+    algo = TRPO
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
+
+    portfolio_name = config["portfolios"][2]["name"]
+    model_name = "PPO2"
+    algo = PPO2
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
+
+    model_name = "DDPG"
+    algo = DDPG
     #TrainWith_BackTest(algo, df, model_name, portfolio_name)
+
+    model_name = "ACKTR"
+    algo = ACKTR
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
+
+    model_name = "A2C"
+    algo = A2C
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
+
+    model_name = "TRPO"
+    algo = TRPO
+    TrainWith_BackTest(algo, df, model_name, portfolio_name)
 
 
 if __name__ == "__main__":
