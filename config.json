@@ -33,10 +33,10 @@
 			"commission_fee": "1e-5"
 		},
 		{
-			"name": "yandex",
-			"desc" : "1 minutes russian data",
-			"asset": ["YANDEX"],
-			"start_date": "2016-01-01",
+			"name": "portfolio4",
+			"desc" : "xiong data",
+			"asset": ["DJIA"],
+			"start_date": "2000-01-03",
 			"end_date": "None",
 			"commission_fee": "1e-5"
 		}

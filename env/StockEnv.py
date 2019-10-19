@@ -12,11 +12,11 @@ iteration = 0
 class StockEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, logfile, modelName, day=0, initial_investment=10000, scope=1, seed=7):
+    def __init__(self, df, logfile, modelName, initial_investment=10000, seed=7):
         super(StockEnv, self).__init__()
 
         self.dates = df.date.unique()
-        self.numSecurity = numSecurity = len(df.ticker.unique())
+        self.numSecurity = len(df.ticker.unique())
         self.numTrainDay = len(self.dates)
         self.terminal = False
         self.train_daily_data = []
@@ -28,7 +28,7 @@ class StockEnv(gym.Env):
         for date in np.unique(df.date):
             self.train_daily_data.append(df[df.date == date])
 
-        self.day = day
+        self.day = 0
 
         # buy or sell maximum 5 shares
         self.action_space = spaces.Box(
@@ -40,16 +40,6 @@ class StockEnv(gym.Env):
         print('observation_space :\t', self.observation_space)
         print('action_space :\t', self.action_space)
 
-        # write column header
-        if 1 == 1:
-            file = open(self.logfile, 'w+')
-            ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
-            aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
-            column = 'model, step, date, cash, portfolio, reward,' + \
-                ','.join(ap) + ',' + ','.join(aq)
-            file.write(column)
-            file.close()
-
         self._seed(seed)
 
     def reset(self):
@@ -60,7 +50,7 @@ class StockEnv(gym.Env):
         # [money]+[prices for each asset]+[owned shares for each asset]
         self.state = [self.initial_investment] + \
             self.data.adj_close.values.tolist() + [0 for i in range(self.numSecurity)]
-
+        # print(self.state)
         return self.state
 
     def _sell_stock(self, index, action):
@@ -145,6 +135,9 @@ class StockEnv(gym.Env):
             # get next days prices
             asset_prices = np.array(self.state[1:(self.numSecurity+1)])
             asset_quantity = np.array(self.state[(self.numSecurity+1):])
+            #print("asset_prices", asset_prices)
+            #print("asset_quantity", asset_quantity)
+
             end_total_asset = self.state[0] + sum(asset_prices * asset_quantity)
             self.reward = end_total_asset - begin_total_asset
             self.asset_memory.append(end_total_asset)
