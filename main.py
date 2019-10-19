@@ -34,8 +34,8 @@ from stable_baselines.common.policies import MlpPolicy
 # tf.set_random_seed(42)
 seed = 3569875
 #lr = 0.01
-lr = 1e-6
-learningRates = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+lr = 1e-8
+
 set_global_seeds(seed)
 np.random.seed(seed)
 
@@ -75,7 +75,7 @@ def evaluate(model, num_steps=1000):
         # 20190927 - temporary disable. need to fix render in StockEnv.py
         # env.render(title="MSFT")
         # env.render(title="MSFT", mode='file', filename=filename)
-        env.render()
+        # env.render()
 
         # Stats
         episode_rewards[-1] += rewards
@@ -177,7 +177,7 @@ df['RR'] = df["adj_close"] / df["adj_close"].shift(1).fillna(1)
     return df
 
 
-def TrainWith_BackTest(algo, df, model_name, portfolio_name, noBacktest):
+def TrainWith_BackTest(algo, df, model_name, portfolio_name,   lr,  lam, gamma,   noBacktest):
 
     # ref https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html
     splits = TimeSeriesSplit(n_splits=noBacktest)
@@ -243,8 +243,11 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name, noBacktest):
             # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
             # model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
             # model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
-            # model = algo(MlpPolicy, env, verbose=1, learning_rate=lr)
-            model = LEARN_FUNC_DICT[model_name](env)
+            model = algo(MlpPolicy, env,  seedy=seed, verbose=1, learning_rate=lr,
+                         gamma=0.99, n_steps=128, ent_coef=0.01, vf_coef=0.5,
+                         max_grad_norm=0.5, lam=lam, nminibatches=4,
+                         noptepochs=4, cliprange=0.2)
+            #model = LEARN_FUNC_DICT[model_name](env)
 
             # Random Agent, before training
             print("*** Agent before learning ***")
@@ -287,6 +290,7 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name, noBacktest):
             i, before[i], after[i], backtest[i]))
 
     data = pd.DataFrame({"timestamp": timestamp, "Model": model_name + "_" + portfolio_name,  "Seed": seed, "learningRate": lr,
+                         "lam": lam, "gamma": gamma,
                          "backtest  # ": np.arange(noBacktest), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
                          "after": after, "testDate": end_test_dates, "roadTest": backtest})
@@ -419,8 +423,12 @@ def chkArgs(argv):
     algo = PPO2
 
     # testSplit(df)
-    #TrainWith_BackTest(algo, df, model_name, portfolio_name, noBacktest=4)
-    TrainSingle(config)
+    for lr in [1e-3, 1e-4]:
+        for lam in np.arange(0.15, 0.95, 0.1):
+            for gamma in np.arange(0.01, 0.99, 0.1):
+                TrainWith_BackTest(algo, df, model_name, portfolio_name,
+                                   lr,  lam, gamma,  noBacktest=4)
+    # TrainSingle(config)
 
 
 def testSplit(df):
