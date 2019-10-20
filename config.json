@@ -39,6 +39,30 @@
 			"start_date": "2000-01-03",
 			"end_date": "None",
 			"commission_fee": "1e-5"
+		},
+		{
+			"name": "portfolio5",
+			"desc" : "liang china",
+			"asset": ["DJIA"],
+			"start_date": "2000-01-03",
+			"end_date": "None",
+			"commission_fee": "1e-5"
+		},
+		{
+			"name": "portfolio6",
+			"desc" : "liang america",
+			"asset": ["DJIA"],
+			"start_date": "2000-01-03",
+			"end_date": "None",
+			"commission_fee": "1e-5"
+		},
+		{
+			"name": "portfolio7",
+			"desc" : "missing data",
+			"asset": ["DJIA"],
+			"start_date": "2000-01-03",
+			"end_date": "None",
+			"commission_fee": "1e-5"
 		}
 
 	]

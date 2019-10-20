@@ -31,18 +31,6 @@ from stable_baselines.common.policies import MlpPolicy
 
 # this is from xiong's code. renamed zxStock_env into StockEnv but use stable_baselines concept as per 01B paper
 
-# Hyperparameters for learning identity for each RL model
-LEARN_FUNC_DICT = {
-    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
-    # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
-    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
-    # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
-    # 'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
-    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=1e-2, lam=0.95),
-    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
-    'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
-}
-
 
 # tf.set_random_seed(42)
 seed = 3569875
@@ -53,6 +41,12 @@ np.random.seed(seed)
 
 
 def dateparse1(x): return pd.datetime.strptime(x, '%Y%m%d')
+
+
+def dateparse2(x): return pd.datetime.strptime(x, '%Y/%m/%d')
+
+
+def dateparse3(x): return pd.datetime.strptime(x, '%b %d, %Y')
 
 
 def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
@@ -96,9 +90,27 @@ def get_data(config, portfolio=0, refreshData=False):
         print(file, "saved")
     else:
         print('Loading file', file)
+        # ensure all records have exact same date range
         df = pd.read_csv(file, parse_dates=['date'], date_parser=dateparse).fillna(
             method='ffill').fillna(method='bfill')
         df = df.sort_values(by=["date", "ticker"])
+        # df.to_csv(file)
+        '''
+        # seem to stuff stats when run xiong data.
+        date_rng = pd.date_range(start=min(df.date), end=max(df.date), freq='d')
+        tmp = pd.DataFrame(date_rng, columns=['date'])
+
+        tickers = df.ticker.unique()
+        df2 = pd.DataFrame()
+        for t in tickers:
+            ticker = df.loc[df.ticker == t]
+            z = pd.merge(tmp, ticker, how='left', on='date')
+            ticker = z.sort_values(by=["date", "ticker"])
+            ticker = ticker.fillna(method='ffill').fillna(method='bfill')
+            df2 = pd.concat([df2, ticker], axis=0)
+            df2 = df2.sort_values(by=["date", "ticker"])
+        df2.to_csv(file)
+        '''
     return df
 
 
@@ -167,7 +179,7 @@ def add_techicalAnalysis(df):
     return df
 
 
-def train(algo, df, model_name, uniqueId, lr, noBacktest=1, cutoff_date='2016-04-01'):
+def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cutoff_date='2016-04-01'):
     before = np.zeros(noBacktest)
     after = np.zeros(noBacktest)
     backtest = np.zeros(noBacktest)
@@ -178,9 +190,8 @@ def train(algo, df, model_name, uniqueId, lr, noBacktest=1, cutoff_date='2016-04
     dates = np.unique(df.date)
     logfile = "./log/"
 
-    # backtest=1 means defines cut of date to split train/test
+    # backtest=1 uses cut of date to split train/test
     cutoff_date = np.datetime64(cutoff_date)
-
     if noBacktest == 1:
         a = np.where(dates < cutoff_date)[0]
         b = np.where(dates >= cutoff_date)[0]
@@ -226,7 +237,7 @@ def train(algo, df, model_name, uniqueId, lr, noBacktest=1, cutoff_date='2016-04
         # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
         # model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
         # model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
-        #model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
+        # model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
         model = LEARN_FUNC_DICT[model_name](env)
 
         # Random Agent, before training
@@ -241,16 +252,16 @@ def train(algo, df, model_name, uniqueId, lr, noBacktest=1, cutoff_date='2016-04
         after[loop] = evaluate(model, num_steps=steps)
 
         # Save the agent
-        #model.save("model/" + runtimeId)
+        # model.save("model/" + runtimeId)
 
         # delete trained model to demonstrate loading. This also frees u memory
-        #del model
+        # del model
 
         # close env
         # env.close()
 
         # load model - seems like it does not use seed on reloaded model
-        #model = algo.load("model/" + runtimeId)
+        # model = algo.load("model/" + runtimeId)
 
         print("*** Run agent on unseen data ***")
         env = DummyVecEnv(
@@ -269,7 +280,7 @@ def train(algo, df, model_name, uniqueId, lr, noBacktest=1, cutoff_date='2016-04
         print("backtest {} : SUM reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
             i, before[i], after[i], backtest[i]))
 
-    return pd.DataFrame({"Model": uniqueId,  "Seed": seed, "learningRate": lr,
+    return pd.DataFrame({"Model": uniqueId,  "Seed": seed, "learningRate": lr, "gamma": gamma,
                          "backtest  # ": np.arange(noBacktest), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
                          "after": after, "testDate": end_test_dates, "Sum Reward@roadTest": backtest})
@@ -319,7 +330,7 @@ def testSplit(df):
     splits = TimeSeriesSplit(max_train_size=4025, n_splits=split)
     dates = np.unique(df.date)
     backtest = 1
-    #cutoff_date = '2018-03-23T00:00:00.000000000'
+    # cutoff_date = '2018-03-23T00:00:00.000000000'
     cutoff_date = np.datetime64('2016-01-04')
 
     if backtest == 1:
@@ -337,6 +348,20 @@ def testSplit(df):
         print("test ", min(test.date), max(test.date))
 
 
+# Hyperparameters for learning identity for each RL model
+# Hyperparameters for learning identity for each RL model
+LEARN_FUNC_DICT = {
+    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
+    # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
+    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
+    # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
+    # 'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
+    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=1e-2, lam=0.95),
+    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
+    'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
+}
+
+
 def testHyperparameters(portfolio, config, df):
     '''
     policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
@@ -350,11 +375,15 @@ def testHyperparameters(portfolio, config, df):
     model_name = "ppo2"
     algo = PPO2
 
-    model_name = "ddpg"
-    algo = DDPG
-    uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
+    # model_name = "ddpg_0.5"
+    # algo = DDPG
 
-    summary = train(algo, df, model_name, uniqueId, lr=lr,  noBacktest=1, cutoff_date='2016-04-01')
+    uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
+    cutoff_date = '2016-04-01'  # xiong
+    # cutoff_date = '2016-04-11'  # liang china
+    summary = train(algo, df, model_name, uniqueId, lr=1e-2,
+                    gamma=None, noBacktest=1, cutoff_date=cutoff_date)
+
     # TrainSingle(config)
 
     with open('summary.csv', 'a') as f:
@@ -362,4 +391,10 @@ def testHyperparameters(portfolio, config, df):
 
 
 if __name__ == "__main__":
+    # file = "./data/China.csv"
+    # df = pd.read_csv(file, parse_dates=['date'], date_parser=dateparse2).fillna(
+    #    method='ffill').fillna(method='bfill')
+    # df = df.loc[df.ticker.isin(["002066", "600000", "600962", "000985", "000862"])]
+    # df = df.sort_values(by=["date", "ticker"])
+    # df.to_csv("./data/portfolio5.csv")
     chkArgs(sys.argv[1:])

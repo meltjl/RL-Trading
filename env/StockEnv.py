@@ -3,7 +3,7 @@ import pandas as pd
 from gym.utils import seeding
 import gym
 from gym import spaces
-
+from datetime import datetime
 import matplotlib.pyplot as plt
 
 iteration = 0
@@ -42,7 +42,7 @@ class StockEnv(gym.Env):
         print('action_space :\t', self.action_space)
 
         # write column header for the first time
-        if 1 == 0:
+        if 1 == 1:
             with open(logfile, 'a+') as f:
                 numSecurity = len(df.ticker.unique())
                 ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
@@ -98,7 +98,7 @@ class StockEnv(gym.Env):
             ax.set_ylabel('Total Asset $')
             ax.set_xlabel('Episode')
             ax.plot(self.asset_memory, color='tomato')
-            # plt.savefig('image/{}.png'.format(self.modelName))
+            plt.savefig('image/{}.png'.format(self.modelName))
             plt.close()
 
             print("**** Summary*****")
@@ -112,8 +112,8 @@ class StockEnv(gym.Env):
             print("% Returns:\t\t{:8.2f}%".format((portfolio_value/self.initial_investment-1)*100))
             print("***************")
 
-            #file = open(self.logfile, 'a+')
-            # file.write(','.join(self.ledger))
+            file = open(self.logfile, 'a+')
+            file.write(','.join(self.ledger))
 
             return self.state, self.reward, self.terminal, {}
 
