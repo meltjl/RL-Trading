@@ -24,6 +24,7 @@ class StockEnv(gym.Env):
         self.logfile = logfile
         self.ledger = []
         self.modelName = modelName
+        self._seed(seed)
 
         for date in np.unique(df.date):
             self.train_daily_data.append(df[df.date == date])
@@ -40,7 +41,15 @@ class StockEnv(gym.Env):
         print('observation_space :\t', self.observation_space)
         print('action_space :\t', self.action_space)
 
-        self._seed(seed)
+        # write column header for the first time
+        if 1 == 0:
+            with open(logfile, 'a+') as f:
+                numSecurity = len(df.ticker.unique())
+                ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
+                aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
+                column = 'model, step, date, cash, portfolio, reward,' + \
+                    ','.join(ap) + ',' + ','.join(aq)
+                f.write(column)
 
     def reset(self):
         self.asset_memory = [self.initial_investment]
@@ -89,7 +98,7 @@ class StockEnv(gym.Env):
             ax.set_ylabel('Total Asset $')
             ax.set_xlabel('Episode')
             ax.plot(self.asset_memory, color='tomato')
-            plt.savefig('image/{}.png'.format(self.modelName))
+            # plt.savefig('image/{}.png'.format(self.modelName))
             plt.close()
 
             print("**** Summary*****")
@@ -103,8 +112,8 @@ class StockEnv(gym.Env):
             print("% Returns:\t\t{:8.2f}%".format((portfolio_value/self.initial_investment-1)*100))
             print("***************")
 
-            file = open(self.logfile, 'a+')
-            file.write(','.join(self.ledger))
+            #file = open(self.logfile, 'a+')
+            # file.write(','.join(self.ledger))
 
             return self.state, self.reward, self.terminal, {}
 

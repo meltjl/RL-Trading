@@ -1,4 +1,5 @@
 config.json.bak
+__pycache__/*.*
 *.*/__pycache__/*.*
 *.txt
 !_requirements.txt

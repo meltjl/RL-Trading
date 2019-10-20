@@ -31,11 +31,23 @@ from stable_baselines.common.policies import MlpPolicy
 
 # this is from xiong's code. renamed zxStock_env into StockEnv but use stable_baselines concept as per 01B paper
 
+# Hyperparameters for learning identity for each RL model
+LEARN_FUNC_DICT = {
+    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
+    # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
+    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
+    # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
+    # 'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
+    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=1e-2, lam=0.95),
+    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
+    'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
+}
+
+
 # tf.set_random_seed(42)
 seed = 3569875
-#lr = 0.01
-lr = 1e-8
-
+# seed = 42
+lr = 0.01
 set_global_seeds(seed)
 np.random.seed(seed)
 
@@ -46,35 +58,14 @@ def dateparse1(x): return pd.datetime.strptime(x, '%Y%m%d')
 def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
 
 
-# Hyperparameters for learning identity for each RL model
-LEARN_FUNC_DICT = {
-    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
-    # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
-    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
-    # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
-    # 'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
-    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=lr, lam=0.95),
-    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
-    'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
-}
-
-
 def evaluate(model, num_steps=1000):
     episode_rewards = [0.0]
     obs = env.reset()
-    print("\nIn Evaluate")
-    print('observation_space :\t', env.observation_space)
-    print('action_space :\t', env.action_space)
-
-    env.render()
+    # env.render()
 
     for i in range(num_steps):
         action, _states = model.predict(obs)
         obs, rewards, done, info = env.step(action)
-
-        # 20190927 - temporary disable. need to fix render in StockEnv.py
-        # env.render(title="MSFT")
-        # env.render(title="MSFT", mode='file', filename=filename)
         # env.render()
 
         # Stats
@@ -84,9 +75,8 @@ def evaluate(model, num_steps=1000):
             episode_rewards.append(0.0)
 
     # Compute mean reward for the last 100 episodes
-
-    #print("Mean reward:", mean_reward)
-    return np.mean(episode_rewards)
+    # print("Mean reward:", mean_reward)
+    return np.sum(episode_rewards)
 
 
 def get_data(config, portfolio=0, refreshData=False):
@@ -137,7 +127,7 @@ def add_techicalAnalysis(df):
     # df['MOM'] = talib.MOM(close_price)
 
     '''
-df['RR'] = df["adj_close"] / df["adj_close"].shift(1).fillna(1)
+    df['RR'] = df["adj_close"] / df["adj_close"].shift(1).fillna(1)
     df['RSI'] = talib.RSI(close_price)
     df['APO'] = talib.APO(close_price)
     df['ADXR'] = talib.ADXR(high_price, low_price, close_price)
@@ -177,10 +167,7 @@ df['RR'] = df["adj_close"] / df["adj_close"].shift(1).fillna(1)
     return df
 
 
-def TrainWith_BackTest(algo, df, model_name, portfolio_name,   lr,  lam, gamma,   noBacktest):
-
-    # ref https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html
-    splits = TimeSeriesSplit(n_splits=noBacktest)
+def train(algo, df, model_name, uniqueId, lr, noBacktest=1, cutoff_date='2016-04-01'):
     before = np.zeros(noBacktest)
     after = np.zeros(noBacktest)
     backtest = np.zeros(noBacktest)
@@ -189,117 +176,196 @@ def TrainWith_BackTest(algo, df, model_name, portfolio_name,   lr,  lam, gamma, 
     end_test_dates = np.empty(noBacktest, dtype="datetime64[s]")
 
     dates = np.unique(df.date)
-    # for lr in [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]:
-    # for s in np.random.randint(0,5):
-    # for lr in [1e-1, 1e-3, 1e-5]:
-    # for lr in [1e-1, 1e-2]:
     logfile = "./log/"
-    timestamp = datetime.now().strftime("%Y%m%d %H%M")
-    runtimeId = model_name + "_" + portfolio_name + "_" + timestamp
-    # write column header
 
-    with open(logfile + runtimeId + ".csv", 'w+') as f:
-        numSecurity = len(df.ticker.unique())
-        ap = ['asset' + str(i) + '_price' for i in range(numSecurity)]
-        aq = ['asset' + str(i) + '_qty' for i in range(numSecurity)]
-        column = 'model, step, date, cash, portfolio, reward,' + \
-            ','.join(ap) + ',' + ','.join(aq) + '\n'
-        f.write(column)
+    # backtest=1 means defines cut of date to split train/test
+    cutoff_date = np.datetime64(cutoff_date)
 
-        loop = 0
-        for train_date_index, test_date_index in splits.split(dates):
-            print("loop", loop)
-            #train = df.iloc[train_index, ]
-            #test = df.iloc[test_index, ]
-            train = df[df.date.isin(dates[train_date_index])]
-            test = df[df.date.isin(dates[test_date_index])]
+    if noBacktest == 1:
+        a = np.where(dates < cutoff_date)[0]
+        b = np.where(dates >= cutoff_date)[0]
+        s = []
+        s.append((a, b))
 
-            uniqueTrainId = runtimeId + "_Train" + str(loop)
-            train_dates[loop] = max(train.date)
-            start_test_dates[loop] = min(test.date)
-            end_test_dates[loop] = max(test.date)
+    else:
+        # ref https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html
+        splits = TimeSeriesSplit(n_splits=noBacktest)
+        s = splits.split(dates)
 
-            # normalize
-            #train = pd.DataFrame(np.concatenate((train.iloc[:, :3], preprocessing.scale(train.iloc[:, 3:])), axis=1), columns=df.columns)
-            # print(train.head())
-            #test = pd.DataFrame(np.concatenate((test.iloc[:, :3], preprocessing.scale(test.iloc[:, 3:])), axis=1), columns=df.columns)
+    loop = 0
+    for train_date_index, test_date_index in s:
+        print("loop", loop)
+        train = df[df.date.isin(dates[train_date_index])]
+        test = df[df.date.isin(dates[test_date_index])]
+        runtimeId = uniqueId + "_" + str(loop)
+        train_dates[loop] = max(train.date)
+        start_test_dates[loop] = min(test.date)
+        end_test_dates[loop] = max(test.date)
 
-            # choose environment
-            # env = StockTradingEnv(train_df)
+        # normalize
+        # train = pd.DataFrame(np.concatenate((train.iloc[:, :3], preprocessing.scale(train.iloc[:, 3:])), axis=1), columns=df.columns)
+        # print(train.head())
+        # test = pd.DataFrame(np.concatenate((test.iloc[:, :3], preprocessing.scale(test.iloc[:, 3:])), axis=1), columns=df.columns)
 
-            # add noise
-            # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-            n_actions = 1
-            action_noise = NormalActionNoise(mean=np.zeros(
-                n_actions), sigma=0.1 * np.ones(n_actions))
-            global env
-            # vectorized environments allow to easily multiprocess training.
-            env = DummyVecEnv(
-                [lambda: StockEnv(train, logfile + runtimeId + ".csv", model_name + "_" + portfolio_name + "_Train" + str(loop))])
+        # add noise
+        # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
+        n_actions = 1
+        action_noise = NormalActionNoise(mean=np.zeros(
+            n_actions), sigma=0.1 * np.ones(n_actions))
+        global env
 
-            # Automatically normalize the input features
-            env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
+        # choose environment
+        # env = StockTradingEnv(train_df)
+        # vectorized environments allow to easily multiprocess training.
+        env = DummyVecEnv(
+            [lambda: StockEnv(train, logfile + runtimeId + ".csv", runtimeId + "_Train")])
 
-            # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-            # model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
-            # model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
-            model = algo(MlpPolicy, env,  seedy=seed, verbose=1, learning_rate=lr,
-                         gamma=0.99, n_steps=128, ent_coef=0.01, vf_coef=0.5,
-                         max_grad_norm=0.5, lam=lam, nminibatches=4,
-                         noptepochs=4, cliprange=0.2)
-            #model = LEARN_FUNC_DICT[model_name](env)
+        # Automatically normalize the input features
+        env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
-            # Random Agent, before training
-            print("*** Agent before learning ***")
-            steps = len(np.unique(train.date))
-            before[loop] = evaluate(model, num_steps=steps)
+        # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
+        # model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
+        # model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
+        #model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
+        model = LEARN_FUNC_DICT[model_name](env)
 
-            print("*** Set agent to learn ***")
-            model.learn(total_timesteps=round(steps))
+        # Random Agent, before training
+        print("*** Agent before learning ***")
+        steps = len(np.unique(train.date))
+        before[loop] = evaluate(model, num_steps=steps)
 
-            print("*** Evaluate the trained agent ***")
-            after[loop] = evaluate(model, num_steps=steps)
+        print("*** Set agent to learn ***")
+        model.learn(total_timesteps=round(steps))
 
-            # Save the agent
-            # model.save("model/" + uniqueId)
+        print("*** Evaluate the trained agent ***")
+        after[loop] = evaluate(model, num_steps=steps)
 
-            # delete trained model to demonstrate loading. This also frees up memory
-            # del model
+        # Save the agent
+        #model.save("model/" + runtimeId)
 
-            # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
-            # model = PPO2.load("model/" + model_name + timestamp)
+        # delete trained model to demonstrate loading. This also frees u memory
+        #del model
 
-            print("*** Run agent on unseen data ***")
-            # print(test.head())
-            uniqueTestId = runtimeId + "_Test" + str(loop)
-            env = DummyVecEnv(
-                [lambda: StockEnv(test, logfile + runtimeId + ".csv", model_name + "_" + portfolio_name+"_Test" + str(loop))])
+        # close env
+        # env.close()
 
-            env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
-            steps = len(np.unique(test.date))
-            backtest[loop] = evaluate(model, num_steps=steps)
+        # load model - seems like it does not use seed on reloaded model
+        #model = algo.load("model/" + runtimeId)
 
-            loop += 1
+        print("*** Run agent on unseen data ***")
+        env = DummyVecEnv(
+            [lambda: StockEnv(test, logfile + runtimeId + ".csv", runtimeId + "_Test")])
+        env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
+        steps = len(np.unique(test.date))
+        backtest[loop] = evaluate(model, num_steps=steps)
+
+        loop += 1
 
     # display result on screen
     for i in range(noBacktest):
-        print("PORTFOLIO", portfolio_name)
+        print("PORTFOLIO", uniqueId)
         print("\ntrain_dates:", min(df.date), train_dates[i])
         print("test_dates:", start_test_dates[i], end_test_dates[i])
-        print("backtest {} : MEAN reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
+        print("backtest {} : SUM reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
             i, before[i], after[i], backtest[i]))
 
-    data = pd.DataFrame({"timestamp": timestamp, "Model": model_name + "_" + portfolio_name,  "Seed": seed, "learningRate": lr,
-                         "lam": lam, "gamma": gamma,
+    return pd.DataFrame({"Model": uniqueId,  "Seed": seed, "learningRate": lr,
                          "backtest  # ": np.arange(noBacktest), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
-                         "after": after, "testDate": end_test_dates, "roadTest": backtest})
-    data.head()
-    with open('summary.csv', 'a') as f:
-        data.to_csv(f, header=True)
-        # data.to_csv(f, header=False)
+                         "after": after, "testDate": end_test_dates, "Sum Reward@roadTest": backtest})
 
 
+def chkArgs(argv):
+    try:
+        opts, args = getopt.getopt(
+            argv, "hm:o:p:r:", ["model=PPO2", "portfolio=", "refreshData=True", "ofile="])
+    except getopt.GetoptError:
+        print('main.py')
+        sys.exit(2)
+
+    model_name = "ppo2"
+    refreshData = 0
+    portfolio = 4
+
+    for opt, arg in opts:
+        if opt == '-h':
+            print('python main.py -m ppo2 -o <ofile>')
+            sys.exit()
+        elif opt in ("-o", "--ofile"):
+            outputfile = arg
+        elif opt in ("-m", "--mfile"):
+            model_name = arg
+        elif opt in ("-p", "--portfolio"):
+            portfolio = int(arg)
+        elif opt in ("-r", "--refreshData"):
+            refreshData = arg
+
+    with open('./config.json', 'r') as f:
+        config = json.load(f)
+
+    df = get_data(config, portfolio=portfolio, refreshData=refreshData)
+    # df = add_techicalAnalysis(df)
+    # print(df.head())
+    # testSplit(df)
+    testHyperparameters(portfolio, config, df)
+
+
+def testSplit(df):
+    '''
+    Test to guarantee that split is done on dates instead of row count
+    '''
+    loop = 0
+    split = 2
+    splits = TimeSeriesSplit(max_train_size=4025, n_splits=split)
+    dates = np.unique(df.date)
+    backtest = 1
+    #cutoff_date = '2018-03-23T00:00:00.000000000'
+    cutoff_date = np.datetime64('2016-01-04')
+
+    if backtest == 1:
+        a = np.where(dates < cutoff_date)[0]
+        b = np.where(dates >= cutoff_date)[0]
+        s = []
+        s.append((a, b))
+    else:
+        s = splits.split(dates)
+
+    for train_date_index, test_date_index in s:
+        train = df[df.date.isin(dates[train_date_index])]
+        test = df[df.date.isin(dates[test_date_index])]
+        print("\ntrain", min(train.date), max(train.date))
+        print("test ", min(test.date), max(test.date))
+
+
+def testHyperparameters(portfolio, config, df):
+    '''
+    policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
+        'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
+    model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
+        lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
+        learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
+                     '''
+
+    portfolio_name = config["portfolios"][portfolio]["name"]
+    model_name = "ppo2"
+    algo = PPO2
+
+    #model_name = "ddpg"
+    #algo = DDPG
+    uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
+
+    summary = train(algo, df, model_name, uniqueId, lr=lr,  noBacktest=1, cutoff_date='2016-04-01')
+    # TrainSingle(config)
+
+    with open('summary_' + model_name + '.csv', 'a') as f:
+        summary.to_csv(f, header=True)
+
+
+if __name__ == "__main__":
+    chkArgs(sys.argv[1:])
+
+
+'''
 def TrainSingle(config):
     model_name = "ppo2"
     refreshData = 0
@@ -341,12 +407,10 @@ def TrainSingle(config):
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
         # model = PPO2(MlpPolicy, env, verbose=1)
-        # model = LEARN_FUNC_DICT[model_name](env)
+        model = LEARN_FUNC_DICT[model_name](env)
         # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
         # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
-
-        #model = PPO2(MlpPolicy, env, verbose=1)
-        model = LEARN_FUNC_DICT[model_name](env)
+        #model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
 
         # Random Agent, before training
         steps = len(np.unique(train.date))
@@ -363,7 +427,7 @@ def TrainSingle(config):
         # del model
 
         # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
-        # model = PPO2.load("model/" + model_name + timestamp)
+        # model = algo.load("model/" + model_name + timestamp)
 
         env = DummyVecEnv([lambda: StockEnv(test, logfile, model_name +
                                             "_" + config["portfolios"][portfolio]["name"] + "_Test", seed=seed)])
@@ -377,79 +441,4 @@ def TrainSingle(config):
 
         print("train: start | end | no Tickers |", min(train.date), "|",
               max(train.date), "|", len(train.ticker.unique()))
-
-
-def chkArgs(argv):
-    try:
-        opts, args = getopt.getopt(
-            argv, "hm:o:p:r:", ["model=PPO2", "portfolio=", "refreshData=True", "ofile="])
-    except getopt.GetoptError:
-        print('main.py')
-        sys.exit(2)
-
-    model_name = "ppo2"
-    refreshData = 0
-    portfolio = 4
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print('python main.py -m ppo2 -o <ofile>')
-            sys.exit()
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-        elif opt in ("-m", "--mfile"):
-            model_name = arg
-        elif opt in ("-p", "--portfolio"):
-            portfolio = int(arg)
-        elif opt in ("-r", "--refreshData"):
-            refreshData = arg
-
-    with open('./config.json', 'r') as f:
-        config = json.load(f)
-
-    df = get_data(config, portfolio=portfolio, refreshData=refreshData)
-    # df = add_techicalAnalysis(df)
-    # print(df.head())
-    '''
-    policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
-        'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
-    model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
-        lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
-        learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
-                     '''
-
-    portfolio_name = config["portfolios"][portfolio]["name"]
-    model_name = "ppo2"
-    algo = PPO2
-
-    # testSplit(df)
-    for lr in [1e-3, 1e-4]:
-        for lam in np.arange(0.15, 0.95, 0.1):
-            for gamma in np.arange(0.01, 0.99, 0.1):
-                TrainWith_BackTest(algo, df, model_name, portfolio_name,
-                                   lr,  lam, gamma,  noBacktest=4)
-    # TrainSingle(config)
-
-
-def testSplit(df):
-    '''
-    Test to guarantee that split is done on dates instead of row count
-    '''
-    loop = 0
-    split = 4
-    splits = TimeSeriesSplit(n_splits=split)
-    dates = np.unique(df.date)
-    for train_date_index, test_date_index in splits.split(dates):
-        train = df[df.date.isin(dates[train_date_index])]
-        test = df[df.date.isin(dates[test_date_index])]
-
-        print("\ntrain", min(train.date), max(train.date))
-        print("test ", min(test.date), max(test.date))
-        #print("loop", loop, train_date_index, test_date_index)
-        # print(dates[train_date_index])
-        #print("\ntrain", df[df.date.isin(dates[train_date_index])])
-        #print("\ntest", df[df.date.isin(dates[test_date_index])])
-
-
-if __name__ == "__main__":
-    chkArgs(sys.argv[1:])
+'''
