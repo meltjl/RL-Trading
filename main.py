@@ -350,95 +350,16 @@ def testHyperparameters(portfolio, config, df):
     model_name = "ppo2"
     algo = PPO2
 
-    #model_name = "ddpg"
-    #algo = DDPG
+    model_name = "ddpg"
+    algo = DDPG
     uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
 
     summary = train(algo, df, model_name, uniqueId, lr=lr,  noBacktest=1, cutoff_date='2016-04-01')
     # TrainSingle(config)
 
-    with open('summary_' + model_name + '.csv', 'a') as f:
+    with open('summary.csv', 'a') as f:
         summary.to_csv(f, header=True)
 
 
 if __name__ == "__main__":
     chkArgs(sys.argv[1:])
-
-
-'''
-def TrainSingle(config):
-    model_name = "ppo2"
-    refreshData = 0
-    portfolio = 4
-    cutoff_date = '2016-04-01'
-
-    df = get_data(config, portfolio=portfolio, refreshData=refreshData)
-    print(df.head())
-    print(df.info())
-
-    train = df.loc[df['date'] < cutoff_date, ]
-    test = df.loc[df['date'] >= cutoff_date, ]
-
-    timestamp = datetime.now().strftime("%Y%m%d %H%M%s")
-    logfile = "./log/" + config["portfolios"][portfolio]["name"] + \
-        "_" + model_name + "_" + timestamp + ".csv"
-
-    # print(train.head())
-    # print(test.head())
-
-    # choose environment
-    # env = StockTradingEnv(train_df)
-
-    with open(logfile, 'w+') as f:
-        numSecurity = len(df.ticker.unique())
-        ap = ['asset' + str(i) + '_price' for i in range(numSecurity)]
-        aq = ['asset' + str(i) + '_qty' for i in range(numSecurity)]
-        column = 'model, step, date, cash, portfolio, reward,' + \
-            ','.join(ap) + ',' + ','.join(aq) + '\n'
-        f.write(column)
-
-        # add noise
-        # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-        n_actions = 3
-        action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-        global env
-        env = DummyVecEnv([lambda: StockEnv(train, logfile, model_name +
-                                            "_" + config["portfolios"][portfolio]["name"] + "_Train", seed=seed)])
-        env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
-
-        # model = PPO2(MlpPolicy, env, verbose=1)
-        model = LEARN_FUNC_DICT[model_name](env)
-        # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-        # model = DDPG("MlpPolicy", env, gamma=0.1, action_noise=action_noise, buffer_size=int(1e6))
-        #model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
-
-        # Random Agent, before training
-        steps = len(np.unique(train.date))
-        before = evaluate(model, num_steps=steps)
-
-        # let model learn
-        print("*** Set agent loose to learn ***")
-        model.learn(total_timesteps=round(steps))
-
-        # Save the agent
-        # model.save("model/" + model_name + timestamp)
-
-        # delete trained model to demonstrate loading. This also frees up memory
-        # del model
-
-        # load model ##### NEED TO UPDATE THIS TO BECOME !!!!!!
-        # model = algo.load("model/" + model_name + timestamp)
-
-        env = DummyVecEnv([lambda: StockEnv(test, logfile, model_name +
-                                            "_" + config["portfolios"][portfolio]["name"] + "_Test", seed=seed)])
-        env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
-        steps = len(np.unique(test.date))
-        backtest = evaluate(model, num_steps=steps)
-
-        print("*** Evaluate the trained agent ***")
-        after = evaluate(model, num_steps=steps)
-        print("before | after | backtest:", before, after, backtest)
-
-        print("train: start | end | no Tickers |", min(train.date), "|",
-              max(train.date), "|", len(train.ticker.unique()))
-'''

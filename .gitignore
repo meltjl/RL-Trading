@@ -8,7 +8,7 @@ image/*.*
 data/*.*
 
 
-
+junk/*.*
 scrape.py
 *.csv
 seed_result.txt
