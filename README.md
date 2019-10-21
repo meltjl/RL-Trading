@@ -15,7 +15,7 @@
 ## Running the code
 Steps to run:
 1. Type in python main.py. The default model is PPO2 and using portfolio1
-    <pre>$ python main.py</pre>
+    <pre>$ python main.py -p 1</pre>
 
 2. To select other data, edit to config.json to configure the combination of assets and dates
 <pre>
@@ -39,9 +39,9 @@ Steps to run:
     }
 </pre>
 
-3. To run specific portfolio by different algorithm. See below. Note index starts from zero.
-    a) To use portfolio2 using PPO2 :
-    <pre>$ python main.py -m PPO2 -p 1</pre>
+3. To run specific portfolio  add the -p parameter. Note index starts from zero.
+    a) To use portfolio2:
+    <pre>$ python main.py -p 2</pre>
 
-    b) To use portfolio1 using DDPG :
-    <pre>$ python main.py -m DDPG -p0</pre>
+    b) To use portfolio3
+    <pre>$ python main.py -p 3</pre>
