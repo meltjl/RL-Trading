@@ -55,12 +55,12 @@ def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
 def evaluate(model, num_steps=1000):
     episode_rewards = [0.0]
     obs = env.reset()
-    # env.render()
+    env.render()
 
     for i in range(num_steps):
         action, _states = model.predict(obs)
         obs, rewards, done, info = env.step(action)
-        # env.render()
+        env.render()
 
         # Stats
         episode_rewards[-1] += rewards
@@ -136,9 +136,8 @@ def add_techicalAnalysis(df):
     low_price = df["adj_low"].values
     high_price = df["adj_high"].values
     volume = df["adj_volume"].values
-    # df['MOM'] = talib.MOM(close_price)
+    df['MOM'] = talib.MOM(close_price)
 
-    '''
     df['RR'] = df["adj_close"] / df["adj_close"].shift(1).fillna(1)
     df['RSI'] = talib.RSI(close_price)
     df['APO'] = talib.APO(close_price)
@@ -164,16 +163,15 @@ def add_techicalAnalysis(df):
     df['SAREXT'] = talib.SAREXT(high_price, low_price)
     # df['TEMA'] = talib.EMA(close_price)
 
-
     df['LOG_RR'] = np.log(df['RR'])
     # if volume_name:
     #    df['MFI'] = talib.MFI(high_price, low_price, close_price, volume)
     # df['AD'] = talib.AD(high_price, low_price, close_price, volume)
     # df['OBV'] = talib.OBV(close_price, volume)
     #    df[volume_name] = np.log(df[volume_name])
-    '''
-    # df = df.dropna().astype(np.float32)
-    # df = df.dropna()
+
+    #df = df.dropna().astype(np.float32)
+    df = df.dropna()
 
     # df.drop(["adj_open"], axis=1)
     return df
@@ -315,8 +313,8 @@ def chkArgs(argv):
         config = json.load(f)
 
     df = get_data(config, portfolio=portfolio, refreshData=refreshData)
-    # df = add_techicalAnalysis(df)
-    # print(df.head())
+    #df = add_techicalAnalysis(df)
+    print(df.head())
     # testSplit(df)
     testHyperparameters(portfolio, config, df)
 
