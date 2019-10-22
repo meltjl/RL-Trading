@@ -13,9 +13,9 @@ iteration = 0
 class StockEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, logfile, modelName, initial_investment=10000, seed=7):
+    def __init__(self, df, logfile, modelName, initial_investment=10000, seed=7, addTA=False):
         super(StockEnv, self).__init__()
-
+        self.addTA = addTA
         self.dates = df.date.unique()
         self.numSecurity = len(df.ticker.unique())
         self.numTrainDay = len(self.dates)
@@ -29,18 +29,20 @@ class StockEnv(gym.Env):
 
         df.loc[:, 'qty'] = 0
         self.TA_columns = df.columns[4:-1]
-        # print(df.head())
-        # print("\n\nta columns")
-        # print(self.TA_columns)
+        print(df.head())
+
+        print("\n\nta columns")
+        print(self.TA_columns)
         self.pivot = df.pivot(index='date', columns='ticker')
         # add one for initial value
         noStates = len(self.pivot.loc[:, "adj_close":].columns) + 1
+
         # print("noStates", noStates)
 
         self.pivot = self.pivot.reset_index()
         self.pivot.insert(1, "initial", pd.Series(self.initial_investment))
         self.pivot.set_index('date')
-        # print(self.pivot.head())
+        print(self.pivot.head())
 
         # buy or sell maximum shares
         self.action_space = spaces.Box(
@@ -52,16 +54,15 @@ class StockEnv(gym.Env):
         self.reset()
 
         # write column header for the first time
-        if 1 == 1:
-            with open(logfile, 'a+') as f:
-                numSecurity = len(df.ticker.unique())
-                ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
-                aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
-                others = ['asset' + str(i) + '_' + col for i in range(self.numSecurity)
-                          for col in self.TA_columns]
-                column = 'model, step, date, cash, portfolio, reward,' + \
-                    ','.join(ap) + ',' + ','.join(aq) + ',' + ','.join(others) + '\n'
-                f.write(column)
+
+        with open(logfile, 'a+') as f:
+            ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
+            aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
+            others = ['asset' + str(i) + '_' + col for i in range(self.numSecurity)
+                      for col in self.TA_columns]
+            column = 'model, incTA?, step, date, cash, portfolio, reward,' + \
+                ','.join(ap) + ',' + ','.join(aq) + ',' + '\n'
+            f.write(column)
 
     def reset(self):
         self.asset_memory = [self.initial_investment]
@@ -93,8 +94,8 @@ class StockEnv(gym.Env):
         # self.state = np.column_stack((self.value, self.price, self.qty, self.ta))
         # print("in else", type(self.value), type(self.price), type(self.qty), type(self.ta))
 
-        # print("state")
-        # print(self.state)
+        print("state")
+        print(self.state)
 
         return self.state
 
@@ -194,7 +195,7 @@ class StockEnv(gym.Env):
         #    self.day, self.dates[self.day], self.value[0], self.asset_memory[-1], self.reward))
         # print(np.shape(self.reward))
 
-        line = [self.modelName, self.day, str(self.dates[self.day]), str(
+        line = [self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
             self.value[0]), str(self.asset_memory[-1]), self.reward]
         print("Step", self.day, line)
 

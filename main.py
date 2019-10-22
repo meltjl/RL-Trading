@@ -55,12 +55,12 @@ def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
 def evaluate(model, num_steps=1000):
     episode_rewards = [0.0]
     obs = env.reset()
-    env.render()
+    # env.render()
 
     for i in range(num_steps):
         action, _states = model.predict(obs)
         obs, rewards, done, info = env.step(action)
-        env.render()
+        # env.render()
 
         # Stats
         episode_rewards[-1] += rewards
@@ -73,7 +73,7 @@ def evaluate(model, num_steps=1000):
     return np.sum(episode_rewards)
 
 
-def get_data(config, portfolio=0, refreshData=False):
+def get_data(config, portfolio=0, refreshData=False, addTA='N'):
     columns = ['ticker', 'date', 'adj_open', 'adj_close', 'adj_high', 'adj_low', 'adj_volume']
     sample = config["portfolios"][portfolio]
     file = "./data/" + sample["name"] + ".csv"
@@ -84,50 +84,39 @@ def get_data(config, portfolio=0, refreshData=False):
         df = quandl.get_table('WIKI/PRICES', ticker=sample["asset"], qopts={'columns': columns}, date={
             'gte': sample["start_date"], 'lte': sample["end_date"]}, paginate=True)
 
-        df = df.fillna(method='ffill').fillna(method='bfill')
-        df = df.sort_values(by=["date", "ticker"])
+        df = pre_process(df, addTA='N')
         df.to_csv(file)
         print(file, "saved")
     else:
         print('Loading file', file)
-        # ensure all records have exact same date range
-        df = pd.read_csv(file, parse_dates=['date'], date_parser=dateparse).fillna(
-            method='ffill').fillna(method='bfill')
-        df = df.sort_values(by=["date", "ticker"])
-        # df.to_csv(file)
-        '''
-        # seem to stuff stats when run xiong data.
-        date_rng = pd.date_range(start=min(df.date), end=max(df.date), freq='d')
-        tmp = pd.DataFrame(date_rng, columns=['date'])
 
-        tickers = df.ticker.unique()
-        df2 = pd.DataFrame()
-        for t in tickers:
-            ticker = df.loc[df.ticker == t]
-            z = pd.merge(tmp, ticker, how='left', on='date')
-            ticker = z.sort_values(by=["date", "ticker"])
-            ticker = ticker.fillna(method='ffill').fillna(method='bfill')
-            df2 = pd.concat([df2, ticker], axis=0)
-            df2 = df2.sort_values(by=["date", "ticker"])
-        df2.to_csv(file)
-        '''
+        df = pd.read_csv(file, parse_dates=['date'], date_parser=dateparse)
+        df = pre_process(df, addTA)
     return df
 
 
-def pre_process(df, open_c, high_c, low_c, close_c, volume_c):
-    preprocessed_data = {}
-    cleaned_data = {}
-    for c in market_data.items:
-        columns = [open_c, close_c, high_c, low_c, volume_c]
-        df = df[c, :, columns].fillna(method='ffill').fillna(method='bfill')
-        df[volume_c] = df[volume_c].replace(0, np.nan).fillna(method='ffill')
-        cleaned_data[c] = df.copy()
-        tech_data = _get_indicators(df=df.astype(
-            float), open_name=open_c, close_name=close_c, high_name=high_c, low_name=low_c, volume_name=volume_c)
-        preprocessed_data[c] = tech_data
-    preprocessed_data = pd.Panel(preprocessed_data).dropna()
-    cleaned_data = pd.Panel(cleaned_data)[:, preprocessed_data.major_axis, :].dropna()
-    return preprocessed_data, cleaned_data
+def pre_process(df, addTA='N'):
+    df = df.sort_values(by=["ticker", "date", ])
+    d = df.date.unique()
+    tmp = pd.DataFrame({"date": d}, index=d)
+
+    tickers = df.ticker.unique()
+    df2 = pd.DataFrame()
+    for t in tickers:
+        ticker = df.loc[df.ticker == t]
+        # force all stock to have same date range
+        ticker = pd.merge(tmp, ticker, how='left', on='date')
+        ticker.fillna(method='ffill').fillna(method='bfill')
+
+        # add Techical Analysis to each stock
+        if addTA == 'Y':
+            print("\n\n\nin addTA")
+            ticker = add_techicalAnalysis(ticker)
+            ticker = ticker.fillna(method='ffill').fillna(method='bfill')
+
+        df2 = pd.concat([df2, ticker], axis=0)
+
+    return df2.sort_values(by=["date", "ticker"])
 
 
 def add_techicalAnalysis(df):
@@ -135,10 +124,12 @@ def add_techicalAnalysis(df):
     close_price = df["adj_close"].values
     low_price = df["adj_low"].values
     high_price = df["adj_high"].values
-    volume = df["adj_volume"].values
-    df['MOM'] = talib.MOM(close_price)
+    # volume = df["adj_volume"].values
+    # df['SAREXT'] = talib.SAREXT(df["adj_high"], df["adj_low"])
 
-    df['RR'] = df["adj_close"] / df["adj_close"].shift(1).fillna(1)
+    df['MOM'] = talib.MOM(close_price)
+    #df['RR'] = df[close_price] / df[close_price].shift(1).fillna(1)
+
     df['RSI'] = talib.RSI(close_price)
     df['APO'] = talib.APO(close_price)
     df['ADXR'] = talib.ADXR(high_price, low_price, close_price)
@@ -161,23 +152,23 @@ def add_techicalAnalysis(df):
 
     df['EMA'] = talib.EMA(close_price)
     df['SAREXT'] = talib.SAREXT(high_price, low_price)
-    # df['TEMA'] = talib.EMA(close_price)
+    df['TEMA'] = talib.EMA(close_price)
+    #df['LOG_RR'] = np.log(df['RR'])
 
-    df['LOG_RR'] = np.log(df['RR'])
     # if volume_name:
     #    df['MFI'] = talib.MFI(high_price, low_price, close_price, volume)
     # df['AD'] = talib.AD(high_price, low_price, close_price, volume)
     # df['OBV'] = talib.OBV(close_price, volume)
     #    df[volume_name] = np.log(df[volume_name])
 
-    #df = df.dropna().astype(np.float32)
-    df = df.dropna()
+    # df = df.dropna().astype(np.float32)
+    # df = df.dropna()
 
     # df.drop(["adj_open"], axis=1)
     return df
 
 
-def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cutoff_date='2016-04-01'):
+def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cutoff_date='2016-04-01', addTA='N'):
     before = np.zeros(noBacktest)
     after = np.zeros(noBacktest)
     backtest = np.zeros(noBacktest)
@@ -227,7 +218,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # env = StockTradingEnv(train_df)
         # vectorized environments allow to easily multiprocess training.
         env = DummyVecEnv(
-            [lambda: StockEnv(train, logfile + runtimeId + ".csv", runtimeId + "_Train")])
+            [lambda: StockEnv(train, logfile + runtimeId + ".csv", runtimeId + "_Train", seed=seed, addTA=addTA)])
 
         # Automatically normalize the input features
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
@@ -263,7 +254,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
 
         print("*** Run agent on unseen data ***")
         env = DummyVecEnv(
-            [lambda: StockEnv(test, logfile + runtimeId + ".csv", runtimeId + "_Test")])
+            [lambda: StockEnv(test, logfile + runtimeId + ".csv", runtimeId + "_Test", seed=seed, addTA=addTA)])
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
         steps = len(np.unique(test.date))
         backtest[loop] = evaluate(model, num_steps=steps)
@@ -278,7 +269,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         print("backtest {} : SUM reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
             i, before[i], after[i], backtest[i]))
 
-    return pd.DataFrame({"Model": uniqueId,  "Seed": seed, "learningRate": lr, "gamma": gamma,
+    return pd.DataFrame({"Model": uniqueId, "addTA": addTA, "Seed": seed, "learningRate": lr, "gamma": gamma,
                          "backtest  # ": np.arange(noBacktest), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
                          "after": after, "testDate": end_test_dates, "Sum Reward@roadTest": backtest})
@@ -287,36 +278,65 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
 def chkArgs(argv):
     try:
         opts, args = getopt.getopt(
-            argv, "hm:o:p:r:", ["model=PPO2", "portfolio=", "refreshData=True", "ofile="])
+            argv, "hb:p:t:c:r", ["backtest=", "portfolio=", "addtechicalAnalysis=", "cutOffDate=", "refreshData=True"])
     except getopt.GetoptError:
         print('main.py')
         sys.exit(2)
 
     model_name = "ppo2"
+    algo = PPO2
     refreshData = 0
-    portfolio = 4
+    portfolio = 2
+    backtest = 1
+    addTA = 'N'
+
+    cutoff_date = '2016-04-01'  # xiong
+    # cutoff_date = '2016-04-11'  # liang china
 
     for opt, arg in opts:
         if opt == '-h':
-            print('python main.py -m ppo2 -o <ofile>')
+            print('python main.py -p <portfolio index> -b <number of back  test> -c <cutoff_date yyyy-mm-dd for test split> -t <Y|N to add techicalAnalysis')
             sys.exit()
         elif opt in ("-o", "--ofile"):
             outputfile = arg
-        elif opt in ("-m", "--mfile"):
-            model_name = arg
+        elif opt in ("-b", "--backtest"):
+            backtest = int(arg)
         elif opt in ("-p", "--portfolio"):
             portfolio = int(arg)
         elif opt in ("-r", "--refreshData"):
             refreshData = arg
+        elif opt in ("-c", "--cutOffDate"):
+            cutoff_date = arg
+        elif opt in ("-t", "--addtechicalAnalysis"):
+            addTA = arg
 
     with open('./config.json', 'r') as f:
         config = json.load(f)
 
-    df = get_data(config, portfolio=portfolio, refreshData=refreshData)
-    #df = add_techicalAnalysis(df)
+    df = get_data(config, portfolio=portfolio, refreshData=refreshData, addTA=addTA)
     print(df.head())
+    print(df.info())
+    portfolio_name = config["portfolios"][portfolio]["name"]
+
     # testSplit(df)
-    testHyperparameters(portfolio, config, df)
+    '''
+    policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
+        'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
+    model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
+        lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
+        learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
+                     '''
+
+    # model_name = "ddpg_0.5"
+    # algo = DDPG
+
+    uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
+
+    summary = train(algo, df, model_name, uniqueId, lr=1e-2,
+                    gamma=None, noBacktest=backtest, cutoff_date=cutoff_date, addTA=addTA)
+
+    with open('summary.csv', 'a') as f:
+        summary.to_csv(f, header=True)
 
 
 def testSplit(df):
@@ -358,34 +378,6 @@ LEARN_FUNC_DICT = {
     'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
     'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
 }
-
-
-def testHyperparameters(portfolio, config, df):
-    '''
-    policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
-        'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
-    model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
-        lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
-        learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
-                     '''
-
-    portfolio_name = config["portfolios"][portfolio]["name"]
-    model_name = "ppo2"
-    algo = PPO2
-
-    # model_name = "ddpg_0.5"
-    # algo = DDPG
-
-    uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
-    cutoff_date = '2016-04-01'  # xiong
-    # cutoff_date = '2016-04-11'  # liang china
-    summary = train(algo, df, model_name, uniqueId, lr=1e-2,
-                    gamma=None, noBacktest=1, cutoff_date=cutoff_date)
-
-    # TrainSingle(config)
-
-    with open('summary.csv', 'a') as f:
-        summary.to_csv(f, header=True)
 
 
 if __name__ == "__main__":
