@@ -11,10 +11,16 @@
 <pre>(RL_Trading) $ pip install -r requirements.txt</pre>
 
 
+## Data
+At bare minimum, data set must contain at least three columns with the columns name and date format defined exactly below:
+ticker	date	    adj_close
+AAPL	2000-01-03	111.9375
+AXP	    2000-01-03	157.25
+
 
 ## Running the code
 Steps to run:
-1. Type in python main.py. The default model is PPO2 and using portfolio1
+1. Type in python main.py. The default algorithm is PPO2
     <pre>$ python main.py -p 1</pre>
 
 2. To select other data, edit to config.json to configure the combination of assets and dates
@@ -39,7 +45,7 @@ Steps to run:
     }
 </pre>
 
-3. To run specific portfolio  add the -p parameter. Note index starts from zero.
+3. To run specific portfolio add the -p parameter. Note index starts from zero.
     a) To use portfolio2:
     <pre>$ python main.py -p 2</pre>
 

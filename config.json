@@ -44,8 +44,7 @@
 			"name": "portfolio5",
 			"desc" : "liang china",
 			"asset": ["DJIA"],
-			"start_date": "2000-01-03",
-			"end_date": "None",
+			"cut_off": "2016-04-11",
 			"commission_fee": "1e-5"
 		},
 		{
@@ -66,10 +65,9 @@
 		},
 		{
 			"name": "portfolio8",
-			"desc" : "xiong data only close",
+			"desc" : "xiong data only adj_close, using test data starting from 2016-01-04",
 			"asset": ["DJIA"],
-			"start_date": "2000-01-03",
-			"end_date": "None",
+			"cut_off": "2016-01-04",
 			"commission_fee": "1e-5"
 		}
 

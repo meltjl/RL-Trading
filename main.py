@@ -89,7 +89,6 @@ def get_data(config, portfolio=0, refreshData=False, addTA='N'):
         print(file, "saved")
     else:
         print('Loading file', file)
-
         df = pd.read_csv(file, parse_dates=['date'], date_parser=dateparse)
         df = pre_process(df, addTA)
     return df
@@ -110,12 +109,11 @@ def pre_process(df, addTA='N'):
 
         # add Techical Analysis to each stock
         if addTA == 'Y':
-            print("\n\n\nin addTA")
             ticker = add_techicalAnalysis(ticker)
             ticker = ticker.fillna(method='ffill').fillna(method='bfill')
 
         df2 = pd.concat([df2, ticker], axis=0)
-
+    df2.to_csv("p3.csv")
     return df2.sort_values(by=["date", "ticker"])
 
 
@@ -175,6 +173,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
     train_dates = np.empty(noBacktest, dtype="datetime64[s]")
     start_test_dates = np.empty(noBacktest, dtype="datetime64[s]")
     end_test_dates = np.empty(noBacktest, dtype="datetime64[s]")
+    print(str(df.columns.tolist()))
 
     dates = np.unique(df.date)
     logfile = "./log/"
@@ -269,7 +268,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         print("backtest {} : SUM reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
             i, before[i], after[i], backtest[i]))
 
-    return pd.DataFrame({"Model": uniqueId, "addTA": addTA, "Seed": seed, "learningRate": lr, "gamma": gamma,
+    return pd.DataFrame({"Model": uniqueId, "addTA": addTA, "Columns": str(df.columns.tolist()), "Seed": seed, "learningRate": lr, "gamma": gamma,
                          "backtest  # ": np.arange(noBacktest), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
                          "after": after, "testDate": end_test_dates, "Sum Reward@roadTest": backtest})
@@ -278,7 +277,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
 def chkArgs(argv):
     try:
         opts, args = getopt.getopt(
-            argv, "hb:p:t:c:r", ["backtest=", "portfolio=", "addtechicalAnalysis=", "cutOffDate=", "refreshData=True"])
+            argv, "hb:p:t:r", ["backtest=", "portfolio=", "addtechicalAnalysis=", "refreshData=True"])
     except getopt.GetoptError:
         print('main.py')
         sys.exit(2)
@@ -290,12 +289,9 @@ def chkArgs(argv):
     backtest = 1
     addTA = 'N'
 
-    cutoff_date = '2016-04-01'  # xiong
-    # cutoff_date = '2016-04-11'  # liang china
-
     for opt, arg in opts:
         if opt == '-h':
-            print('python main.py -p <portfolio index> -b <number of back  test> -c <cutoff_date yyyy-mm-dd for test split> -t <Y|N to add techicalAnalysis')
+            print('python main.py -p <portfolio index> -b <number of back  test> -t <Y|N to add techicalAnalysis')
             sys.exit()
         elif opt in ("-o", "--ofile"):
             outputfile = arg
@@ -305,8 +301,6 @@ def chkArgs(argv):
             portfolio = int(arg)
         elif opt in ("-r", "--refreshData"):
             refreshData = arg
-        elif opt in ("-c", "--cutOffDate"):
-            cutoff_date = arg
         elif opt in ("-t", "--addtechicalAnalysis"):
             addTA = arg
 
@@ -317,6 +311,7 @@ def chkArgs(argv):
     print(df.head())
     print(df.info())
     portfolio_name = config["portfolios"][portfolio]["name"]
+    cutoff_date = config["portfolios"][portfolio]["cut_off"]
 
     # testSplit(df)
     '''
