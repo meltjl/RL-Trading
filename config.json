@@ -65,9 +65,16 @@
 		},
 		{
 			"name": "portfolio8",
-			"desc" : "xiong data only adj_close, using test data starting from 2016-01-04",
+			"desc" : "xiong data only adj_close, using test data starting from 2016-Jan-04",
 			"asset": ["DJIA"],
 			"cut_off": "2016-01-04",
+			"commission_fee": "1e-5"
+		},
+		{
+			"name": "portfolio9",
+			"desc" : "xiong data data_3['adjcp'] = data_3['prccd'] / data_3['ajexdi'], using test data starting from 2016-Jan-04",
+			"asset": ["DJIA"],
+			"cut_off": "2016-01-01",
 			"commission_fee": "1e-5"
 		}
 

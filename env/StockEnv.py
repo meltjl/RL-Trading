@@ -6,8 +6,8 @@ import csv
 from gym import spaces
 from datetime import datetime
 import matplotlib.pyplot as plt
-
-iteration = 0
+from datetime import datetime
+from calendar import isleap
 
 
 class StockEnv(gym.Env):
@@ -42,7 +42,7 @@ class StockEnv(gym.Env):
         self.pivot = self.pivot.reset_index()
         self.pivot.insert(1, "initial", pd.Series(self.initial_investment))
         self.pivot.set_index('date')
-        print(self.pivot.head())
+        # print(self.pivot.head())
 
         # buy or sell maximum shares
         self.action_space = spaces.Box(
@@ -124,13 +124,6 @@ class StockEnv(gym.Env):
         self.terminal = self.day >= (self.numTrainDay-1)
 
         if self.terminal:
-            fig, ax = plt.subplots()
-            ax.set_title(self.modelName)
-            ax.set_ylabel('Total Asset $')
-            ax.set_xlabel('Episode')
-            ax.plot(self.asset_memory, color='tomato')
-            plt.savefig('image/{}.png'.format(self.modelName))
-            plt.close()
 
             print("**** Summary*****")
             print("Model:\t\t\t", self.modelName.upper())
@@ -138,9 +131,21 @@ class StockEnv(gym.Env):
             print("Initial Investment :\t{:8.2f}".format(self.initial_investment))
 
             portfolio_value = self.state[0] + sum(np.array(self.price) * np.array(self.qty))
+            rtns_dollar = round(portfolio_value - self.initial_investment, 2)
+            rtns_pct = round((portfolio_value/self.initial_investment-1)*100, 2)
+            #rtns_annualised = (1+rtns_pct) ** (1/self.years)-1
+
             print("Portfolio Value:\t{:8.2f}".format(portfolio_value))
-            print("% Returns:\t\t{:8.2f}%".format((portfolio_value/self.initial_investment-1)*100))
+            print("% Returns:\t\t{:8.2f}%".format(rtns_pct))
             print("***************")
+
+            fig, ax = plt.subplots()
+            ax.set_title(self.modelName)
+            ax.set_ylabel('Total Asset $')
+            ax.set_xlabel('Episode')
+            ax.plot(self.asset_memory, color='tomato')
+            plt.savefig('image/{}.png'.format(self.modelName))
+            plt.close()
 
             # file = open(self.logfile, 'a+')
             # file.write(','.join(self.ledger))
