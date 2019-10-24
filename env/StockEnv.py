@@ -13,13 +13,14 @@ from calendar import isleap
 class StockEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, logfile, modelName, initial_investment=10000, seed=7, addTA=False):
+    def __init__(self, df, logfile, modelName, initial_investment=10000, seed=7, commission=0, addTA=False):
         super(StockEnv, self).__init__()
         self.addTA = addTA
         self.dates = df.date.unique()
         self.numSecurity = len(df.ticker.unique())
         self.numTrainDay = len(self.dates)
         self.terminal = False
+        self.commission = float(commission)*-1
 
         self.initial_investment = initial_investment
         self.logfile = logfile
@@ -27,12 +28,12 @@ class StockEnv(gym.Env):
         self.modelName = modelName
         self._seed(seed)
 
+        # create a place holder to store weight/qty
         df.loc[:, 'qty'] = 0
-        self.TA_columns = df.columns[4:-1]
-        print(df.head())
 
-        print("\n\nta columns")
-        print(self.TA_columns)
+        # all columns after adjclose are considered TA
+        self.TA_columns = df.columns[df.columns.get_loc("adj_close")+1:-1]
+
         self.pivot = df.pivot(index='date', columns='ticker')
         # add one for initial value
         noStates = len(self.pivot.loc[:, "adj_close":].columns) + 1
@@ -60,14 +61,15 @@ class StockEnv(gym.Env):
             aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
             others = ['asset' + str(i) + '_' + col for i in range(self.numSecurity)
                       for col in self.TA_columns]
-            column = 'model, incTA?, step, date, cash, portfolio, reward,' + \
+            column = 'model, incTA?, step, date, cash, portfolio, gross_reward, commission_paid, net_reward,' + \
                 ','.join(ap) + ',' + ','.join(aq) + ',' + '\n'
             f.write(column)
 
     def reset(self):
         self.asset_memory = [self.initial_investment]
         self.day = 0
-        self.reward = 0
+        self.gross_reward = 0
+        self.commission_paid = 0
 
         # return as range of one day else it becomes a panda series
         self.data = self.pivot[self.day:self.day+1]
@@ -94,8 +96,8 @@ class StockEnv(gym.Env):
         # self.state = np.column_stack((self.value, self.price, self.qty, self.ta))
         # print("in else", type(self.value), type(self.price), type(self.qty), type(self.ta))
 
-        print("state")
-        print(self.state)
+        # print("state")
+        # print(self.state)
 
         return self.state
 
@@ -116,6 +118,7 @@ class StockEnv(gym.Env):
         quantity = min(min_quantity, action)
         self.value -= self.price[index] * quantity
         self.qty[index] += quantity
+
         # print(type(self.value.tolist()), type(self.price), type(self.qty), type(self.ta))
         # update investment and qty
         self.state = self.value.tolist() + self.price + self.qty + self.ta
@@ -133,7 +136,7 @@ class StockEnv(gym.Env):
             portfolio_value = self.state[0] + sum(np.array(self.price) * np.array(self.qty))
             rtns_dollar = round(portfolio_value - self.initial_investment, 2)
             rtns_pct = round((portfolio_value/self.initial_investment-1)*100, 2)
-            #rtns_annualised = (1+rtns_pct) ** (1/self.years)-1
+            # rtns_annualised = (1+rtns_pct) ** (1/self.years)-1
 
             print("Portfolio Value:\t{:8.2f}".format(portfolio_value))
             print("% Returns:\t\t{:8.2f}%".format(rtns_pct))
@@ -151,18 +154,19 @@ class StockEnv(gym.Env):
             # file.write(','.join(self.ledger))
             # file.write(self.ledger)
 
-            #x = self.ledger + [self.pivot.loc[:, self.TA_columns].values.tolist()]
+            # x = self.ledger + [self.pivot.loc[:, self.TA_columns].values.tolist()]
             # print("zzzzz")
-            #print(self.pivot.loc[:, self.TA_columns].head())
+            # print(self.pivot.loc[:, self.TA_columns].head())
             # print(x)
             with open(self.logfile, 'a+') as myfile:
                 wr = csv.writer(myfile)
                 wr.writerows(self.ledger)
 
-            return self.state, self.reward, self.terminal, {}
+            return self.state, self.gross_reward, self.terminal, {}
 
         else:
             begin_total_asset = (self.value + sum(np.array(self.price) * np.array(self.qty)))
+            begin_cash = self.state[0]
             # print("begin_total_asset", type(begin_total_asset.tolist()), begin_total_asset[0])
 
             # actions are predicted by the RL algo to spit out the quantity to buy/sell
@@ -187,11 +191,14 @@ class StockEnv(gym.Env):
             self.state = self.value.tolist() + self.price + self.qty + self.ta
 
             end_total_asset = self.value + sum(np.array(self.price) * np.array(self.qty))
-            self.reward = (end_total_asset - begin_total_asset)[0]
+            end_cash = self.state[0]
+            self.gross_reward = (end_total_asset - begin_total_asset)[0]
+            self.commission_paid = abs(end_cash - begin_cash) * self.commission
+
             self.asset_memory.append(end_total_asset[0])
             # print("end_total_asset",end_total_asset)
 
-        return self.state, self.reward, self.terminal, {}
+        return self.state, self.gross_reward, self.terminal, {}
 
     def render(self, mode='human'):
         # print("self.value", self.value,)
@@ -199,15 +206,15 @@ class StockEnv(gym.Env):
         # print("Step: {:05} | Date : {} | Cash: {:8.2f} | Portfolio: {:8.2f} | Reward: {:>4.2f}".format(
         #    self.day, self.dates[self.day], self.value[0], self.asset_memory[-1], self.reward))
         # print(np.shape(self.reward))
-
+        net_reward = self.gross_reward - self.commission_paid
         line = [self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
-            self.value[0]), str(self.asset_memory[-1]), self.reward]
+            self.value[0]), str(self.asset_memory[-1]), self.gross_reward, self.commission_paid, net_reward]
         print("Step", self.day, line)
 
         # print(self.price, self.qty)
         # prices = str(self.price).strip('[]')
         # qty = str(self.qty).strip('[]')
-        #print("type", type(self.price), type(self.qty))
+        # print("type", type(self.price), type(self.qty))
 
         self.ledger.append(line + self.price + self.qty)
         # self.ledger.append(self.qty)

@@ -20,6 +20,8 @@ from stable_baselines.common.identity_env import IdentityEnv, IdentityEnvBox
 from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.policies import MlpPolicy
+from stable_baselines.ddpg import AdaptiveParamNoiseSpec
+from stable_baselines.ddpg.policies import LnMlpPolicy
 # from stable_baselines.bench import Monitor
 
 # This is sample trading env from
@@ -36,7 +38,7 @@ from stable_baselines.common.policies import MlpPolicy
 
 seed = 42
 lr = 1e-2
-cliprange = 0.3
+cliprange = 0.1
 g = 0.99
 
 set_global_seeds(seed)
@@ -58,12 +60,12 @@ def dateparse(x): return pd.datetime.strptime(x, '%Y-%m-%d')
 def evaluate(model, num_steps=1000):
     episode_rewards = [0.0]
     obs = env.reset()
-    # env.render()
+    env.render()
 
     for i in range(num_steps):
         action, _states = model.predict(obs)
         obs, rewards, done, info = env.step(action)
-        # env.render()
+        env.render()
 
         # Stats
         episode_rewards[-1] += rewards
@@ -126,56 +128,85 @@ def add_techicalAnalysis(df):
     # low_price = df["adj_low"].values
     # high_price = df["adj_high"].values
     # volume = df["adj_volume"].values
-    # df['SAREXT'] = talib.SAREXT(df["adj_high"], df["adj_low"])
 
+    #'EMA', 'TEMA',
+    #'APO', 'CMO', 'MACD', 'MACD_SIG', 'MACD_HIST', 'MOM', 'PPO', 'ROCP', 'RSI', 'TRIX'
+    #'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE', 'INPHASE',    'QUADRATURE'
+
+    # =====================================
+    # Overlap Studies
+    # =====================================
+    df['EMA'] = talib.EMA(close_price)
+    # TEMA - Triple Exponential Moving Average
+    df['TEMA'] = talib.EMA(close_price)
+    # WMA - Weighted Moving Average
+    #df['WMA'] = talib.WMA(close_price, timeperiod=30)
+    # HT_TRENDLINE - Hilbert Transform - Instantaneous Trendline
+    #df['HT_TRENDLINE'] = talib.HT_TRENDLINE(close_price)
+
+    # =====================================
+    # Momentum Indicator Functions
+    # =====================================
+    # APO - Absolute Price Oscillator
+    df['APO'] = talib.APO(close_price, fastperiod=12, slowperiod=26, matype=0)
+    # CMO - Chande Momentum Oscillator
+    df['CMO'] = talib.CMO(close_price, timeperiod=14)
+    # MACD - Moving Average Convergence/Divergence
+    df['MACD'], df['MACD_SIG'], df['MACD_HIST'] = talib.MACD(
+        close_price, fastperiod=12, slowperiod=26, signalperiod=9)
+    # MOM - Momentum
     df['MOM'] = talib.MOM(close_price)
-    df['RR'] = df[close_price] / df[close_price].shift(1).fillna(1)
-    df['RSI'] = talib.RSI(close_price)
-    df['APO'] = talib.APO(close_price)
-    # df['ADXR'] = talib.ADXR(high_price, low_price, close_price)
-    # df['AROON_UP'], _ = talib.AROON(high_price, low_price)
-    # df['CCI'] = talib.CCI(high_price, low_price, close_price)
-    # df['PLUS_DI'] = talib.PLUS_DI(high_price, low_price, close_price)
-    df['HT_DCPERIOD'] = talib.HT_DCPERIOD(close_price)
-    df['HT_DCPHASE'] = talib.HT_DCPHASE(close_price)
-    df['SINE'], df['LEADSINE'] = talib.HT_SINE(close_price)
-    df['INPHASE'], df['QUADRATURE'] = talib.HT_PHASOR(close_price)
-    df['PPO'] = talib.PPO(close_price)
-    df['MACD'], df['MACD_SIG'], df['MACD_HIST'] = talib.MACD(close_price)
-    df['CMO'] = talib.CMO(close_price)
-    df['ROCP'] = talib.ROCP(close_price)
-    # df['FASTK'], df['FASTD'] = talib.STOCHF(high_price, low_price, close_price)
+    # PPO - Percentage Price Oscillator
+    df['PPO'] = talib.PPO(close_price, fastperiod=12, slowperiod=26, matype=0)
+    # ROCP - Rate of change Percentage: (price-prevPrice)/prevPrice
+    df['ROCP'] = talib.ROCP(close_price, timeperiod=10)
+    # RSI - Relative Strength Index
+    df['RSI'] = talib.RSI(close_price, timeperiod=14)
+    # TRIX - 1-day Rate-Of-Change (ROC) of a Triple Smooth EMA
     df['TRIX'] = talib.TRIX(close_price)
+
+    # NOT USED
+    # ADXR - Average Directional Movement Index Rating
+    # df['ADXR'] = talib.ADXR(high_price, low_price, close_price)
+    # AROON - Aroon
+    # df['AROON_UP'], _ = talib.AROON(high_price, low_price)
+    # CCI - Commodity Channel Index
+    # df['CCI'] = talib.CCI(high_price, low_price, close_price)
+    # ULTOSC - Ultimate Oscillator
     # df['ULTOSC'] = talib.ULTOSC(high_price, low_price, close_price)
+    # WILLR - Williams' %R
     # df['WILLR'] = talib.WILLR(high_price, low_price, close_price)
+
+    # =====================================
+    # Cycle Indicator Functions
+    # =====================================
+    # HT_DCPERIOD - Hilbert Transform - Dominant Cycle Period
+    df['HT_DCPERIOD'] = talib.HT_DCPERIOD(close_price)
+    # HT_DCPHASE - Hilbert Transform - Dominant Cycle Phase
+    df['HT_DCPHASE'] = talib.HT_DCPHASE(close_price)
+    # HT_SINE - Hilbert Transform - SineWave
+    df['SINE'], df['LEADSINE'] = talib.HT_SINE(close_price)
+    # HT_TRENDMODE - Hilbert Transform - Trend vs Cycle Mode
+    #df['HT_TRENDMODE'] = talib.HT_TRENDMODE(close_price)
+    # HT_PHASOR - Hilbert Transform - Phasor Components
+    df['INPHASE'], df['QUADRATURE'] = talib.HT_PHASOR(close_price)
+
+    # NOT USED
+    # df['PLUS_DI'] = talib.PLUS_DI(high_price, low_price, close_price)
+    # df['FASTK'], df['FASTD'] = talib.STOCHF(high_price, low_price, close_price)
     # df['NATR'] = talib.NATR(high_price, low_price, close_price)
 
-    df['EMA'] = talib.EMA(close_price)
-    # df['SAREXT'] = talib.SAREXT(high_price, low_price)
-    df['TEMA'] = talib.EMA(close_price)
-    # df['LOG_RR'] = np.log(df['RR'])
-
-    # if volume_name:
-    #    df['MFI'] = talib.MFI(high_price, low_price, close_price, volume)
-    # df['AD'] = talib.AD(high_price, low_price, close_price, volume)
-    # df['OBV'] = talib.OBV(close_price, volume)
-    #    df[volume_name] = np.log(df[volume_name])
-
-    # df = df.dropna().astype(np.float32)
-    # df = df.dropna()
-
-    # df.drop(["adj_open"], axis=1)
     return df
 
 
-def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cutoff_date='2016-04-01', addTA='N'):
+def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cutoff_date=None, commission=0, addTA='N'):
     before = np.zeros(noBacktest)
     after = np.zeros(noBacktest)
     backtest = np.zeros(noBacktest)
     train_dates = np.empty(noBacktest, dtype="datetime64[s]")
     start_test_dates = np.empty(noBacktest, dtype="datetime64[s]")
     end_test_dates = np.empty(noBacktest, dtype="datetime64[s]")
-    print(str(df.columns.tolist()))
+    # print(str(df.columns.tolist()))
 
     dates = np.unique(df.date)
     logfile = "./log/"
@@ -218,8 +249,10 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # choose environment
         # env = StockTradingEnv(train_df)
         # vectorized environments allow to easily multiprocess training.
+        title = runtimeId + "_Train\nlr=" + \
+            str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
-            [lambda: StockEnv(train, logfile + runtimeId + ".csv", runtimeId + "_Train", seed=seed, addTA=addTA)])
+            [lambda: StockEnv(train, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
 
         # Automatically normalize the input features
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
@@ -229,8 +262,17 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
         # model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
         # model = LEARN_FUNC_DICT[model_name](env)
-        model = algo(MlpPolicy, env, seedy=seed, gamma=g, n_steps=128, ent_coef=0.01, learning_rate=lr,
-                     vf_coef=0.5, max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=cliprange, cliprange_vf=None)
+
+        model = algo(MlpPolicy, env, seedy=seed, gamma=g, n_steps=128,
+                     ent_coef=0.01, learning_rate=lr, vf_coef=0.5, max_grad_norm=0.5,
+                     lam=0.95, nminibatches=4, noptepochs=4, cliprange=cliprange,
+                     cliprange_vf=None,  # tensorboard_log="./tensorlog",
+                     _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, )
+
+        # Add some param noise for exploration
+        #param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0.1)
+        # Because we use parameter noise, we should use a MlpPolicy with layer normalization
+        #model = DDPG(LnMlpPolicy, env, param_noise=param_noise, verbose=0)
 
         # Random Agent, before training
         print("*** Agent before learning ***")
@@ -256,8 +298,10 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # model = algo.load("model/" + runtimeId)
 
         print("*** Run agent on unseen data ***")
+        title = runtimeId + "_Test\nlr=" + \
+            str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
-            [lambda: StockEnv(test, logfile + runtimeId + ".csv", runtimeId + "_Test", seed=seed, addTA=addTA)])
+            [lambda: StockEnv(test, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
         steps = len(np.unique(test.date))
         backtest[loop] = evaluate(model, num_steps=steps)
@@ -272,8 +316,8 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         print("backtest {} : SUM reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
             i, before[i], after[i], backtest[i]))
 
-    return pd.DataFrame({"Model": uniqueId, "addTA": addTA, "Columns": str(df.columns.tolist()), "Seed": seed,
-                         "cliprange": cliprange, "learningRate": lr, "gamma": g,
+    return pd.DataFrame({"Model": uniqueId, "addTA": addTA, "Columns": str(df.columns.tolist()), "commission": commission,
+                         "Seed": seed, "cliprange": cliprange, "learningRate": lr, "gamma": g,
                          "backtest  # ": np.arange(noBacktest), "StartTrainDate": min(train.date),
                          "EndTrainDate": train_dates, "before": before,
                          "after": after, "testDate": end_test_dates, "Sum Reward@roadTest": backtest})
@@ -290,9 +334,10 @@ def chkArgs(argv):
     model_name = "ppo2"
     algo = PPO2
     refreshData = 0
-    portfolio = 2
+    portfolio = 4
     backtest = 1
     addTA = 'N'
+    commission = 0
 
     for opt, arg in opts:
         if opt == '-h':
@@ -315,7 +360,16 @@ def chkArgs(argv):
     df = get_data(config, portfolio=portfolio, refreshData=refreshData, addTA=addTA)
     print(df.head())
     print(df.info())
+
+    # really bad way to choose TA.
+    if addTA == 'Y':
+        # df = df[['date', 'ticker', 'adj_close', 'MOM', 'RSI', 'APO', 'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE',
+        #     'INPHASE', 'QUADRATURE', 'PPO', 'MACD', 'MACD_SIG', 'MACD_HIST', 'CMO', 'ROCP', 'TRIX', 'EMA', 'TEMA']]
+        df = df[['date', 'ticker', 'adj_close', 'QUADRATURE', 'MACD_HIST', 'RSI']]
+
     portfolio_name = config["portfolios"][portfolio]["name"]
+    commission = config["portfolios"][portfolio]["commission"]
+    print("commission", commission)
     if "cut_off" in config["portfolios"][portfolio]:
         cutoff_date = config["portfolios"][portfolio]["cut_off"]
     else:
@@ -336,7 +390,7 @@ def chkArgs(argv):
     uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
 
     summary = train(algo, df, model_name, uniqueId, lr=lr,
-                    gamma=None, noBacktest=backtest, cutoff_date=cutoff_date, addTA=addTA)
+                    gamma=None, noBacktest=backtest, cutoff_date=cutoff_date, commission=commission, addTA=addTA)
 
     with open('summary.csv', 'a') as f:
         summary.to_csv(f, header=True)
@@ -370,14 +424,12 @@ def testSplit(df):
 
 
 # Hyperparameters for learning identity for each RL model
-# Hyperparameters for learning identity for each RL model
 LEARN_FUNC_DICT = {
     'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
     # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
     'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
     # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
-    # 'ppo2': lambda e: PPO2(policy="MlpPolicy", env=e, learning_rate=lr, lam=0.8),
-    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=1e-4, lam=0.95),
+    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=1e-2, lam=0.95),
     'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
     'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
 }
