@@ -38,7 +38,7 @@ from stable_baselines.ddpg.policies import LnMlpPolicy
 
 seed = 42
 lr = 1e-2
-cliprange = 0.1
+cliprange = 0.3
 g = 0.99
 
 set_global_seeds(seed)
@@ -249,7 +249,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # choose environment
         # env = StockTradingEnv(train_df)
         # vectorized environments allow to easily multiprocess training.
-        title = runtimeId + "_Train\nlr=" + \
+        title = runtimeId + "_Train lr=" + \
             str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
             [lambda: StockEnv(train, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
@@ -298,7 +298,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # model = algo.load("model/" + runtimeId)
 
         print("*** Run agent on unseen data ***")
-        title = runtimeId + "_Test\nlr=" + \
+        title = runtimeId + "_Test lr=" + \
             str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
             [lambda: StockEnv(test, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
@@ -362,10 +362,10 @@ def chkArgs(argv):
     print(df.info())
 
     # really bad way to choose TA.
-    if addTA == 'Y':
-        # df = df[['date', 'ticker', 'adj_close', 'MOM', 'RSI', 'APO', 'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE',
-        #     'INPHASE', 'QUADRATURE', 'PPO', 'MACD', 'MACD_SIG', 'MACD_HIST', 'CMO', 'ROCP', 'TRIX', 'EMA', 'TEMA']]
-        df = df[['date', 'ticker', 'adj_close', 'QUADRATURE', 'MACD_HIST', 'RSI']]
+    # if addTA == 'Y':
+    # df = df[['date', 'ticker', 'adj_close', 'MOM', 'RSI', 'APO', 'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE',
+    #     'INPHASE', 'QUADRATURE', 'PPO', 'MACD', 'MACD_SIG', 'MACD_HIST', 'CMO', 'ROCP', 'TRIX', 'EMA', 'TEMA']]
+    #df = df[['date', 'ticker', 'adj_close', 'QUADRATURE', 'MACD_HIST', 'RSI']]
 
     portfolio_name = config["portfolios"][portfolio]["name"]
     commission = config["portfolios"][portfolio]["commission"]

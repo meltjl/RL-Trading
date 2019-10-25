@@ -51,25 +51,26 @@ class StockEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=np.inf, shape=(noStates,))
         print('observation_space :\t', self.observation_space)
         print('action_space :\t', self.action_space)
-
         self.reset()
 
         # write column header for the first time
-
         with open(logfile, 'a+') as f:
             ap = ['asset' + str(i) + '_price' for i in range(self.numSecurity)]
             aq = ['asset' + str(i) + '_qty' for i in range(self.numSecurity)]
             others = ['asset' + str(i) + '_' + col for i in range(self.numSecurity)
                       for col in self.TA_columns]
-            column = 'model, incTA?, step, date, cash, portfolio, gross_reward, commission_paid, net_reward,' + \
+            column = 'model, incTA?, step, date, cash, portfolio, reward, total_commission, buy_amt, buy_commission, sell_amt, sell_commission,' + \
                 ','.join(ap) + ',' + ','.join(aq) + ',' + '\n'
             f.write(column)
 
     def reset(self):
-        self.asset_memory = [self.initial_investment]
+        self.portfolio_value = [self.initial_investment]
+        self.net_cash = [self.initial_investment]
         self.day = 0
-        self.gross_reward = 0
-        self.commission_paid = 0
+        self.reward = 0
+        self.commission_paid = [0] * len(self.dates)
+        self.transaction = {"buy_amt": 0, "buy_commission": 0,
+                            "sell_amt": 0, "sell_commission": 0, }
 
         # return as range of one day else it becomes a panda series
         self.data = self.pivot[self.day:self.day+1]
@@ -104,7 +105,13 @@ class StockEnv(gym.Env):
     def _sell_stock(self, index, action):
         if self.qty[index] > 0:
             quantity = min(abs(action), self.qty[index])
-            self.value += self.price[index] * quantity
+            sell_amt = self.price[index] * quantity
+
+            self.transaction["sell_amt"] += sell_amt
+            self.transaction["sell_commission"] += sell_amt * self.commission
+
+            self.commission_paid[self.day] += sell_amt * self.commission
+            self.value += sell_amt + (sell_amt*self.commission)
             self.qty[index] -= quantity
 
             # update investment and qty
@@ -116,16 +123,26 @@ class StockEnv(gym.Env):
     def _buy_stock(self, index, action):
         min_quantity = self.state[0] // self.price[index]
         quantity = min(min_quantity, action)
-        self.value -= self.price[index] * quantity
+        buy_amt = self.price[index] * quantity
+
+        self.transaction["buy_amt"] += buy_amt
+        self.transaction["buy_commission"] += buy_amt * self.commission
+
+        self.commission_paid[self.day] += buy_amt * self.commission
+
+        self.value -= (buy_amt - (buy_amt * self.commission))
         self.qty[index] += quantity
 
+        # print("buy", (self.price[index] * quantity) * self.commission)
+        # print(self.commission_paid[self.day])
         # print(type(self.value.tolist()), type(self.price), type(self.qty), type(self.ta))
         # update investment and qty
         self.state = self.value.tolist() + self.price + self.qty + self.ta
 
     def step(self, actions):
         self.terminal = self.day >= (self.numTrainDay-1)
-
+        self.transaction = {"buy_amt": 0, "buy_commission": 0,
+                            "sell_amt": 0, "sell_commission": 0, }
         if self.terminal:
 
             print("**** Summary*****")
@@ -146,7 +163,7 @@ class StockEnv(gym.Env):
             ax.set_title(self.modelName)
             ax.set_ylabel('Total Asset $')
             ax.set_xlabel('Episode')
-            ax.plot(self.asset_memory, color='tomato')
+            ax.plot(self.portfolio_value, color='tomato')
             plt.savefig('image/{}.png'.format(self.modelName))
             plt.close()
 
@@ -162,7 +179,7 @@ class StockEnv(gym.Env):
                 wr = csv.writer(myfile)
                 wr.writerows(self.ledger)
 
-            return self.state, self.gross_reward, self.terminal, {}
+            return self.state, self.reward, self.terminal, {}
 
         else:
             begin_total_asset = (self.value + sum(np.array(self.price) * np.array(self.qty)))
@@ -191,36 +208,34 @@ class StockEnv(gym.Env):
             self.state = self.value.tolist() + self.price + self.qty + self.ta
 
             end_total_asset = self.value + sum(np.array(self.price) * np.array(self.qty))
-            end_cash = self.state[0]
-            self.gross_reward = (end_total_asset - begin_total_asset)[0]
-            self.commission_paid = abs(end_cash - begin_cash) * self.commission
 
-            self.asset_memory.append(end_total_asset[0])
+            self.reward = (end_total_asset - begin_total_asset)[0]
+
+            self.portfolio_value.append(end_total_asset[0])
+            # self.net_portfolio_value.append(end_total_asset[0]+self.commission_paid[self.day-1])
             # print("end_total_asset",end_total_asset)
 
-        return self.state, self.gross_reward, self.terminal, {}
+        return self.state, self.reward, self.terminal, {}
 
     def render(self, mode='human'):
         # print("self.value", self.value,)
 
         # print("Step: {:05} | Date : {} | Cash: {:8.2f} | Portfolio: {:8.2f} | Reward: {:>4.2f}".format(
-        #    self.day, self.dates[self.day], self.value[0], self.asset_memory[-1], self.reward))
+        #    self.day, self.dates[self.day], self.value[0], self.portfolio_value[-1], self.reward))
         # print(np.shape(self.reward))
-        net_reward = self.gross_reward - self.commission_paid
-        line = [self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
-            self.value[0]), str(self.asset_memory[-1]), self.gross_reward, self.commission_paid, net_reward]
-        print("Step", self.day, line)
 
-        # print(self.price, self.qty)
-        # prices = str(self.price).strip('[]')
-        # qty = str(self.qty).strip('[]')
-        # print("type", type(self.price), type(self.qty))
+        # self.commission_paid is negative
+        #net_reward = self.portfolio_value[-1] + self.commission_paid[self.day-1]
+        #print("self.transaction", self.transaction)
+        line = [self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
+            self.value[0]), str(self.portfolio_value[-1]), self.reward,
+            self.commission_paid[self.day-1],
+            self.transaction["buy_amt"], self.transaction["buy_commission"],
+            self.transaction["sell_amt"], self.transaction["sell_commission"]
+        ]
+        # print("Step", self.day, line)
 
         self.ledger.append(line + self.price + self.qty)
-        # self.ledger.append(self.qty)
-        # self.ledger.append(line)
-        # print(self.state)
-        # self.ledger.append(self.state)
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)

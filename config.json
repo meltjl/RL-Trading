@@ -35,7 +35,7 @@
 			"desc" : "xiong data data_3['adjcp'] = data_3['prccd'] / data_3['ajexdi'], using test data starting from 2016-Jan-01",
 			"asset": ["DJIA"],
 			"cut_off": "2016-01-01",
-			"commission": "0.003"
+			"commission": "0.001"
 		},
 		{
 			"name": "portfolio5",
