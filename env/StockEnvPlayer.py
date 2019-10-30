@@ -9,12 +9,14 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from calendar import isleap
 
+# player mode - slightly mor advance with more functinality
 
-class StockEnv(gym.Env):
+
+class StockEnvPlayer(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, df, logfile, modelName, initial_investment=10000, seed=7, commission=0, addTA=False):
-        super(StockEnv, self).__init__()
+        super(StockEnvPlayer, self).__init__()
         self.addTA = addTA
         self.dates = df.date.unique()
         self.numSecurity = len(df.ticker.unique())
@@ -29,7 +31,7 @@ class StockEnv(gym.Env):
         self._seed(seed)
 
         # create a place holder to store weight/qty
-        df.loc[:, 'qty'] = 0
+        df.loc[:, 'qty'] = 0.0
 
         # all columns after adjclose are considered TA
         self.TA_columns = df.columns[df.columns.get_loc("adj_close")+1:-1]
@@ -39,7 +41,6 @@ class StockEnv(gym.Env):
         noStates = len(self.pivot.loc[:, "adj_close":].columns) + 1
 
         # print("noStates", noStates)
-
         self.pivot = self.pivot.reset_index()
         self.pivot.insert(1, "initial", pd.Series(self.initial_investment))
         self.pivot.set_index('date')
@@ -75,31 +76,21 @@ class StockEnv(gym.Env):
         # return as range of one day else it becomes a panda series
         self.data = self.pivot[self.day:self.day+1]
 
-        self.value = self.data.loc[:, ['initial']].values[0].tolist()
-        # self.value = self.data.loc[:, ['initial']].to_numpy().flatten()
-        # print("self.value", type(self.value), self.value)
+        # convert everything to simple array so that it can be appended column wise
+        self.value = self.data.loc[:, ['initial']].values[0]
+        #print("self.value", type(self.value), self.value)
 
-        self.price = self.data.loc[:, ['adj_close']].values[0].tolist()
-        # self.price = self.data.loc[:, ['adj_close']].to_numpy().flatten()
-        # print("self.price", type(self.price), self.price)
+        self.price = self.data.loc[:, ['adj_close']].values[0]
+        #print("self.price", type(self.price), self.price)
 
-        self.qty = self.data.loc[:, ['qty']].values[0].tolist()
-        # print("self.qty", type(self.qty), self.qty)
+        self.qty = self.data.loc[:, ['qty']].values[0]
+        #print("self.qty", type(self.qty), self.qty)
 
-        self.ta = self.data.loc[:, self.TA_columns].values[0].tolist()
-        # print("self.ta", type(self.ta), self.ta)
-        # [initial money]+[prices for each asset]+[owned shares for each asset]+[techical analysis]
-        # self.state = pd.concat([self.value, self.price, self.qty, self.ta], axis=1, sort=False)
-        # self.state = np.column_stack([self.value, self.price, self.qty, self.ta])
-        # print(type(self.value), type(self.price), type(self.qty), type(self.ta))
-        self.state = self.value + self.price + self.qty + self.ta
+        self.ta = self.data.loc[:, self.TA_columns].values[0]
+        #print("self.ta", type(self.ta), self.ta)
 
-        # self.state = np.column_stack((self.value, self.price, self.qty, self.ta))
-        # print("in else", type(self.value), type(self.price), type(self.qty), type(self.ta))
-
-        # print("state")
+        self.state = np.hstack((self.value, self.price, self.qty, self.ta))
         # print(self.state)
-
         return self.state
 
     def _sell_stock(self, index, action):
@@ -115,13 +106,16 @@ class StockEnv(gym.Env):
             self.qty[index] -= quantity
 
             # update investment and qty
-            self.state = self.value.tolist() + self.price + self.qty + self.ta
+            self.state = np.hstack((self.value, self.price, self.qty, self.ta))
         else:
             # print("No asset to sell")
             pass
 
     def _buy_stock(self, index, action):
+
         min_quantity = self.state[0] // self.price[index]
+        #print("*****", index,  min_quantity, self.state[0], self.price[index])
+
         quantity = min(min_quantity, action)
         buy_amt = self.price[index] * quantity
 
@@ -131,13 +125,16 @@ class StockEnv(gym.Env):
         self.commission_paid[self.day] += buy_amt * self.commission
 
         self.value -= (buy_amt - (buy_amt * self.commission))
-        self.qty[index] += quantity
+        self.qty[index] = self.qty[index] + quantity
 
-        print("buy", self.price[index], quantity, self.commission)
-        # print(self.commission_paid[self.day])
-        # print(type(self.value.tolist()), type(self.price), type(self.qty), type(self.ta))
+        # print("buy", self.price[index], quantity, "***",
+        #      self.qty[index], "***", type(self.qty[index]))
+        # print("buy", index, quantity, self.price[index],
+        # (self.price[index] * quantity) * self.commission)
+        #      (self.price[index] * quantity))
+
         # update investment and qty
-        self.state = self.value.tolist() + self.price + self.qty + self.ta
+        self.state = np.hstack((self.value, self.price, self.qty, self.ta))
 
     def step(self, actions):
         self.terminal = self.day >= (self.numTrainDay-1)
@@ -182,10 +179,8 @@ class StockEnv(gym.Env):
             return self.state, self.reward, self.terminal, {}
 
         else:
-            begin_total_asset = (self.value + sum(np.array(self.price) * np.array(self.qty)))
+            begin_total_asset = self.value + np.sum(self.price * self.qty)
             begin_cash = self.state[0]
-            #print("begin_total_asset", self.value,  begin_total_asset[0])
-            # print("begin_total_asset", type(begin_total_asset.tolist()), begin_total_asset[0])
 
             # actions are predicted by the RL algo to spit out the quantity to buy/sell
             argsort_actions = np.argsort(actions)
@@ -206,12 +201,15 @@ class StockEnv(gym.Env):
             self.price = self.data.loc[:, ['adj_close']].values[0].tolist()
             self.ta = self.data.loc[:, self.TA_columns].values[0].tolist()
 
-            self.state = self.value.tolist() + self.price + self.qty + self.ta
+            #print("in else", type(self.value), type(self.price), type(self.qty), type(self.ta))
+            #self.state = self.value[0] + self.price + self.qty + self.ta
+            self.state = np.hstack((self.value, self.price, self.qty, self.ta))
 
-            end_total_asset = self.value + sum(np.array(self.price) * np.array(self.qty))
+            end_total_asset = self.value + np.sum(self.price * self.qty)
+            print("reward", self.value,  begin_total_asset[0], end_total_asset, self.reward)
 
             self.reward = (end_total_asset - begin_total_asset)[0]
-            print("reward", self.value,  begin_total_asset[0], end_total_asset, self.reward)
+
             self.portfolio_value.append(end_total_asset[0])
             # self.net_portfolio_value.append(end_total_asset[0]+self.commission_paid[self.day-1])
             # print("end_total_asset",end_total_asset)
@@ -228,15 +226,16 @@ class StockEnv(gym.Env):
         # self.commission_paid is negative
         #net_reward = self.portfolio_value[-1] + self.commission_paid[self.day-1]
         #print("self.transaction", self.transaction)
-        line = [self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
+        line = np.array([self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
             self.value[0]), str(self.portfolio_value[-1]), self.reward,
             self.commission_paid[self.day-1],
             self.transaction["buy_amt"], self.transaction["buy_commission"],
             self.transaction["sell_amt"], self.transaction["sell_commission"]
-        ]
+        ])
         # print("Step", self.day, line)
 
-        self.ledger.append(line + self.price + self.qty)
+        #self.ledger.append(line + self.price + self.qty)
+        self.ledger.append(np.hstack((line, self.price, self.qty)))
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)

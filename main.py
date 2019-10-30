@@ -1,4 +1,5 @@
 from env.StockEnv import StockEnv
+from env.StockEnvPlayer import StockEnvPlayer
 import gym
 import numpy as np
 import pandas as pd
@@ -73,8 +74,6 @@ def evaluate(model, num_steps=1000):
             obs = env.reset()
             episode_rewards.append(0.0)
 
-    # Compute mean reward for the last 100 episodes
-    # print("Mean reward:", mean_reward)
     return np.sum(episode_rewards)
 
 
@@ -210,9 +209,12 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
 
     dates = np.unique(df.date)
     logfile = "./log/"
+    print("noBacktest", noBacktest)
 
     # backtest=1 uses cut of date to split train/test
     cutoff_date = np.datetime64(cutoff_date)
+    print("cutoff_date", cutoff_date)
+
     if noBacktest == 1:
         a = np.where(dates <= cutoff_date)[0]
         b = np.where(dates > cutoff_date)[0]
@@ -252,7 +254,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         title = runtimeId + "_Train lr=" + \
             str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
-            [lambda: StockEnv(train, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
+            [lambda: StockEnvPlayer(train, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
 
         # Automatically normalize the input features
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
@@ -301,7 +303,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         title = runtimeId + "_Test lr=" + \
             str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
-            [lambda: StockEnv(test, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
+            [lambda: StockEnvPlayer(test, logfile + runtimeId + ".csv", title, seed=seed, commission=commission, addTA=addTA)])
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
         steps = len(np.unique(test.date))
         backtest[loop] = evaluate(model, num_steps=steps)
@@ -358,9 +360,9 @@ def chkArgs(argv):
         config = json.load(f)
 
     df = get_data(config, portfolio=portfolio, refreshData=refreshData, addTA=addTA)
-    print(df.head())
-    print(df.info())
-
+    # print(df.head())
+    # print(df.info())
+    print("\n\n\n\n\n\n\n\n\n")
     # really bad way to choose TA.
     # if addTA == 'Y':
     # df = df[['date', 'ticker', 'adj_close', 'MOM', 'RSI', 'APO', 'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE',
@@ -369,12 +371,12 @@ def chkArgs(argv):
 
     portfolio_name = config["portfolios"][portfolio]["name"]
     commission = config["portfolios"][portfolio]["commission"]
-    print("commission", commission)
+
     if "cut_off" in config["portfolios"][portfolio]:
         cutoff_date = config["portfolios"][portfolio]["cut_off"]
     else:
         cutoff_date = ''
-        backtest = 4
+        backtest = 4 if backtest == '' else backtest
 
     '''
     policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
