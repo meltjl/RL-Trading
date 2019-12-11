@@ -44,7 +44,6 @@ class StockEnvPlayer(gym.Env):
         self.pivot = self.pivot.reset_index()
         self.pivot.insert(1, "initial", pd.Series(self.initial_investment))
         self.pivot.set_index('date')
-        # print(self.pivot.head())
 
         # buy or sell maximum shares
         self.action_space = spaces.Box(
@@ -87,13 +86,6 @@ class StockEnvPlayer(gym.Env):
     def _sell_stock(self, index, action):
         if self.qty[index] > 0:
             quantity = min(abs(action), self.qty[index])
-            #last_price = self.pivot.loc[self.day-2:self.day-1, ['adj_close']].values[0][index]
-
-            # stop loss if price drop more than 5%
-            # if (self.price[index] / last_price - 1) < -0.05:
-            #print("\n***STOP LOSS***", index, self.dates[self.day], quantity,  self.qty[index])
-            #quantity = self.qty[index]
-
             sell_amt = self.price[index] * quantity
             self.transaction["sell_amt"] += sell_amt
             self.transaction["sell_commission"] += sell_amt * self.commission
@@ -109,8 +101,6 @@ class StockEnvPlayer(gym.Env):
             pass
 
     def _buy_stock(self, index, action):
-        # keep at least 10 of cash
-
         min_quantity = self.state[0] // self.price[index]
 
         quantity = min(min_quantity, action)
