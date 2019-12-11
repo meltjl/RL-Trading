@@ -19,23 +19,23 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 </figure>
 <hr>
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure2.png" alt="Figure2" width="80%" height="80%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure2.png" alt="Figure2" width="75%" height="75%">
   <figcaption>Fig.2 - Comparison of portfolio value when technical indicators are used (0% commission)</figcaption>
 </figure>
 <hr>
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure3.png" alt="Figure3"  width="90%" height="90%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure3.png" alt="Figure3"  width="75%" height="75%">
   <figcaption>Fig.3 - Buy and Sell activity for test data (based on Run#1 – No technical indicators)</figcaption>
 </figure>
 <br><br><br>
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure4.png" alt="Figure4" style="width:90%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure4.png" alt="Figure4" width="75%" height="75%">
   <figcaption>Fig.4 - Buy and Sell activity for test data (based on Run#4 – With technical indicators)</figcaption>
 </figure>
 <br><br><br>
 <hr>
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure5.png" alt="Figure5" style="width:90%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure5.png" alt="Figure5"  width="75%" height="75%">
   <figcaption>Fig.5 - Comparison of Test result using PPO2 algorithm under various commission rates.</figcaption>
 </figure>
 
