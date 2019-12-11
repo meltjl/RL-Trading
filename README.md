@@ -75,9 +75,9 @@ AXP	    2000-01-03	157.25
 ## Running the code
 1. To run specific portfolio add the -p parameter. Eg
     a) To use portfolio4 without technical indicators
-    <pre>$ python main.py -p 4 -t N</pre>
+    <pre>$ python main.py -p 4 -t N
 
-    <pre> *** Run agent on unseen data ***
+*** Run agent on unseen data ***
 observation_space :	 Box(57,)
 action_space :	 Box(28,)
 **** Summary*****
@@ -94,9 +94,9 @@ backtest 0 : SUM reward : before | after | backtest :  17276.22 |  91000.59 |  1
 </pre>
 
     b) To use portfolio3 with technical indicator
-    <pre>$ python main.py -p 3 -t Y</pre>
+    <pre>$ python main.py -p 3 -t Y
 
-<pre>*** Run agent on unseen data ***
+*** Run agent on unseen data ***
 observation_space :	 Box(561,)
 action_space :	 Box(28,)
 **** Summary*****
