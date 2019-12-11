@@ -48,7 +48,7 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 ## Activate environment
 <pre>$ source RL_Trading/bin/activate</pre>
 
-## Install all dependencies libraries
+## Install all dependent libraries
 <pre>(RL_Trading) $ pip install -r requirements.txt</pre>
 
 ## Reproducability
@@ -73,8 +73,7 @@ AXP	    2000-01-03	157.25
 
 
 ## Running the code
-Steps to run:
-1. To run specific portfolio add the -p parameter
+1. To run specific portfolio add the -p parameter. Eg
     a) To use portfolio4 without technical indicators
     <pre>$ python main.py -p 4 -t N<</pre>
 
