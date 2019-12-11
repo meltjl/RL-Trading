@@ -7,9 +7,9 @@ __pycache__/*.*
 image/backup/*.*
 report
 tensorlog/*.*
-
+log/backup/*.*
 model/*.*
 junk/*.*
 scrape.py
-*.csv
+summary.csv
 seed_result.txt
