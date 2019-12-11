@@ -3,9 +3,9 @@ __pycache__/*.*
 *.*/__pycache__/*.*
 *.txt
 !_requirements.txt
-log/backup/*.*
+
 image/backup/*.*
-report/*.*
+report
 tensorlog/*.*
 
 model/*.*

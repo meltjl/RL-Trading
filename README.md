@@ -9,7 +9,7 @@ Learning (RL) is an autonomous approach to decision making process through repet
 learning and evaluation. The idea is to train an agent to learn to execute an order by acting on
 a suitable strategy that maximizes profit.
 
-In this project, we adapted the codes from <a href='https://www.groundai.com/project/practical-deep-reinforcement-learning-approach-for-stock-trading/'>Xiong et al (2018)</a> but applied the <a href:'https://arxiv.org/abs/1707.06347'>Proximal Policy Optimization Algorithmm Schulman et al (2017)</a>. The model achieved an annual return of 34.06%. We also found that adding technical indicators altered the agent’s trading activities significantly.
+In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Stock_Trading'>codes</a> from <a href='https://arxiv.org/abs/1811.07522v1'>Practical Deep Reinforcement Learning Approach for Stock Trading, Xiong et al (2018)</a> but applied the <a href='https://arxiv.org/abs/1707.06347'>Proximal Policy Optimization Algorithmm, Schulman et al (2017)</a>. The model achieved an annual return of 34.06%. We also found that adding technical indicators altered the agent’s trading activities significantly.
 
 # Results
 
