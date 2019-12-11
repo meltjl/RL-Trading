@@ -14,7 +14,7 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 
 # Results
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure1.png" alt="Figure1" width="500" height="600">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure1.png" alt="Figure1" width="50%" height="50%">
   <figcaption>Fig.1 - Comparison of before and after training data set using PPO2 with different clipping (0% commission and without technical indicators)</figcaption>
 </figure>
 <hr>
