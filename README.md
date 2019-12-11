@@ -67,11 +67,11 @@ to your virtual environment.
 
 ### Data
 1. At bare minimum, data set must contain at least three columns with the columns name and date format defined exactly below:
-<pre>
-ticker	date	    adj_close
-AAPL	2000-01-03	111.9375
-AXP	    2000-01-03	157.25
-</pre>
+    <pre>
+    ticker, date, adj_close
+    AAPL, 2000-01-03, 111.9375
+    AXP, 2000-01-03, 157.25
+    </pre>
 
 2. To change commission rate or add other data, edit to config.json to configure the combination of assets and dates
     <pre>
