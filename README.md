@@ -11,10 +11,14 @@ a suitable strategy that maximizes profit.
 
 In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Stock_Trading'>codes</a> from <a href='https://arxiv.org/abs/1811.07522v1'>Practical Deep Reinforcement Learning Approach for Stock Trading, Xiong et al (2018)</a> but applied the <a href='https://arxiv.org/abs/1707.06347'>Proximal Policy Optimization Algorithmm, Schulman et al (2017)</a>. The model achieved an annual return of 34.06%. We also found that adding technical indicators altered the agent’s trading activities significantly.
 
+<hr/>
 # Results
+<figure>
+  <img src="./figure1.png" alt="Trulli" style="width:100%">
+  <figcaption>Fig.1 - Comparison of before and after training data set using PPO2 with different clipping (0% commission and without technical indicators)</figcaption>
+</figure>
 
-
-
+<hr/>
 
 # Environment
 ## Create virtual environment
@@ -31,13 +35,13 @@ The following files were edited to ensure reproducibility. Copy the files from
 <ul>
 <li>/files To Overwrite/stable_baselines/common/policies.py</li>
 <li>/files To Overwrite/stable_baselines/ppo2/ppo2.py</li>
-<ul>
+</ul>
 
 to your virtual environment.
 <ul>
 <li>../lib/python3.6/site-packages/stable_baselines/common/policies.py</li>
 <li>../lib/python3.6/site-packages/stable_baselines/ppo2/ppo2.py</li>
-<ul>
+</ul>
 
 
 ## Data
@@ -57,7 +61,7 @@ Steps to run:
     <pre>$ python main.py -p 3 -t Y</pre>
 
 
-2. To select other data, edit to config.json to configure the combination of assets and dates
+2. To change commission rate or select other data, edit to config.json to configure the combination of assets and dates and pass in the parameter as step 1
     <pre>
         {
         	"api" : xxxxx,
