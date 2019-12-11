@@ -14,17 +14,17 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 
 # Results
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure1.png" alt="Figure1" width="50%" height="50%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure1.png" alt="Figure1" width="75%" height="75%">
   <figcaption>Fig.1 - Comparison of before and after training data set using PPO2 with different clipping (0% commission and without technical indicators)</figcaption>
 </figure>
 <hr>
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure2.png" alt="Figure1" style="width:60%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure2.png" alt="Figure2" width="80%" height="80%">
   <figcaption>Fig.2 - Comparison of portfolio value when technical indicators are used (0% commission)</figcaption>
 </figure>
 <hr>
 <figure>
-  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure3.png" alt="Figure3" style="width:90%">
+  <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure3.png" alt="Figure3"  width="90%" height="90%">
   <figcaption>Fig.3 - Buy and Sell activity for test data (based on Run#1 – No technical indicators)</figcaption>
 </figure>
 <br><br><br>
