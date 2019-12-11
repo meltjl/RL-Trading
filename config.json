@@ -12,7 +12,7 @@
 			"desc" : "Simple dataset",
 			"asset": ["MSFT, APL"],
 			"cut_off": "2016-01-01",
-			"commission": "0.003"
+			"commission": "0.000"
 		},
 		{
 			"name": "portfolio2",
@@ -24,24 +24,17 @@
 		},
 		{
 			"name": "portfolio3",
-			"desc" : "xiong data all columns",
+			"desc" : "xiong data data_3['adjcp'] = data_3['prccd'] / data_3['ajexdi']",
 			"asset": ["DJIA"],
 			"cut_off": "2016-01-01",
 			"commission": "0.003"
 		},
 		{
 			"name": "portfolio4",
-			"desc" : "xiong data data_3['adjcp'] = data_3['prccd'] / data_3['ajexdi'], using test data starting from 2016-Jan-01",
+			"desc" : "xiong data data_3['adjcp'] = data_3['prccd'] / data_3['ajexdi']",
 			"asset": ["DJIA"],
 			"cut_off": "2016-01-01",
-			"commission": "0.000"
-		},
-		{
-			"name": "portfolio5",
-			"desc" : "liang china",
-			"asset": ["DJIA"],
-			"cut_off": "2016-04-11",
-			"commission": "1e-5"
+			"commission": "0.00"
 		}
 
 	]

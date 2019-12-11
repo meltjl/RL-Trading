@@ -3,12 +3,12 @@ __pycache__/*.*
 *.*/__pycache__/*.*
 *.txt
 !_requirements.txt
-log/*.*
-image/*.*
-data/*.*
+log/backup/*.*
+image/backup/*.*
 report/*.*
 tensorlog/*.*
 
+model/*.*
 junk/*.*
 scrape.py
 *.csv

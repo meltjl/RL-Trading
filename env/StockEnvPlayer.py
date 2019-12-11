@@ -26,7 +26,7 @@ class StockEnvPlayer(gym.Env):
 
         self.initial_investment = initial_investment
         self.logfile = logfile
-        self.ledger = []
+
         self.modelName = modelName
         self._seed(seed)
 
@@ -35,8 +35,8 @@ class StockEnvPlayer(gym.Env):
 
         # all columns after adjclose are considered TA
         self.TA_columns = df.columns[df.columns.get_loc("adj_close")+1:-1]
-
         self.pivot = df.pivot(index='date', columns='ticker')
+
         # add one for initial value
         noStates = len(self.pivot.loc[:, "adj_close":].columns) + 1
 
@@ -68,6 +68,7 @@ class StockEnvPlayer(gym.Env):
         self.portfolio_value = [self.initial_investment]
         self.net_cash = [self.initial_investment]
         self.day = 0
+        self.ledger = []
         self.reward = 0
         self.commission_paid = [0] * len(self.dates)
         self.transaction = {"buy_amt": 0, "buy_commission": 0,
@@ -75,29 +76,25 @@ class StockEnvPlayer(gym.Env):
 
         # return as range of one day else it becomes a panda series
         self.data = self.pivot[self.day:self.day+1]
-
-        # convert everything to simple array so that it can be appended column wise
         self.value = self.data.loc[:, ['initial']].values[0]
-        #print("self.value", type(self.value), self.value)
-
         self.price = self.data.loc[:, ['adj_close']].values[0]
-        #print("self.price", type(self.price), self.price)
-
         self.qty = self.data.loc[:, ['qty']].values[0]
-        #print("self.qty", type(self.qty), self.qty)
-
         self.ta = self.data.loc[:, self.TA_columns].values[0]
-        #print("self.ta", type(self.ta), self.ta)
+        self.state = np.concatenate((self.value, self.price, self.qty, self.ta))
 
-        self.state = np.hstack((self.value, self.price, self.qty, self.ta))
-        # print(self.state)
         return self.state
 
     def _sell_stock(self, index, action):
         if self.qty[index] > 0:
             quantity = min(abs(action), self.qty[index])
-            sell_amt = self.price[index] * quantity
+            #last_price = self.pivot.loc[self.day-2:self.day-1, ['adj_close']].values[0][index]
 
+            # stop loss if price drop more than 5%
+            # if (self.price[index] / last_price - 1) < -0.05:
+            #print("\n***STOP LOSS***", index, self.dates[self.day], quantity,  self.qty[index])
+            #quantity = self.qty[index]
+
+            sell_amt = self.price[index] * quantity
             self.transaction["sell_amt"] += sell_amt
             self.transaction["sell_commission"] += sell_amt * self.commission
 
@@ -106,18 +103,19 @@ class StockEnvPlayer(gym.Env):
             self.qty[index] -= quantity
 
             # update investment and qty
-            self.state = np.hstack((self.value, self.price, self.qty, self.ta))
+            self.state = np.concatenate((self.value, self.price, self.qty, self.ta))
         else:
             # print("No asset to sell")
             pass
 
     def _buy_stock(self, index, action):
+        # keep at least 10 of cash
 
         min_quantity = self.state[0] // self.price[index]
-        #print("*****", index,  min_quantity, self.state[0], self.price[index])
 
         quantity = min(min_quantity, action)
         buy_amt = self.price[index] * quantity
+        # print("buy", self.dates[self.day], index, action, quantity)
 
         self.transaction["buy_amt"] += buy_amt
         self.transaction["buy_commission"] += buy_amt * self.commission
@@ -125,16 +123,10 @@ class StockEnvPlayer(gym.Env):
         self.commission_paid[self.day] += buy_amt * self.commission
 
         self.value -= (buy_amt - (buy_amt * self.commission))
-        self.qty[index] = self.qty[index] + quantity
-
-        # print("buy", self.price[index], quantity, "***",
-        #      self.qty[index], "***", type(self.qty[index]))
-        # print("buy", index, quantity, self.price[index],
-        # (self.price[index] * quantity) * self.commission)
-        #      (self.price[index] * quantity))
+        self.qty[index] += quantity
 
         # update investment and qty
-        self.state = np.hstack((self.value, self.price, self.qty, self.ta))
+        self.state = np.concatenate((self.value, self.price, self.qty, self.ta))
 
     def step(self, actions):
         self.terminal = self.day >= (self.numTrainDay-1)
@@ -164,14 +156,6 @@ class StockEnvPlayer(gym.Env):
             plt.savefig('image/{}.png'.format(self.modelName))
             plt.close()
 
-            # file = open(self.logfile, 'a+')
-            # file.write(','.join(self.ledger))
-            # file.write(self.ledger)
-
-            # x = self.ledger + [self.pivot.loc[:, self.TA_columns].values.tolist()]
-            # print("zzzzz")
-            # print(self.pivot.loc[:, self.TA_columns].head())
-            # print(x)
             with open(self.logfile, 'a+') as myfile:
                 wr = csv.writer(myfile)
                 wr.writerows(self.ledger)
@@ -186,7 +170,7 @@ class StockEnvPlayer(gym.Env):
             argsort_actions = np.argsort(actions)
             sell_index = argsort_actions[: np.where(actions < 0)[0].shape[0]]
             buy_index = argsort_actions[:: -1][: np.where(actions > 0)[0].shape[0]]
-            # print("in else", type(self.value), type(self.price), type(self.qty), type(self.ta))
+            #print("sell|buy index", actions, sell_index, buy_index)
 
             for index in sell_index:
                 self._sell_stock(index, actions[index])
@@ -198,44 +182,25 @@ class StockEnvPlayer(gym.Env):
             self.day += 1
             self.data = self.pivot[self.day:self.day+1]
 
-            self.price = self.data.loc[:, ['adj_close']].values[0].tolist()
-            self.ta = self.data.loc[:, self.TA_columns].values[0].tolist()
-
-            #print("in else", type(self.value), type(self.price), type(self.qty), type(self.ta))
-            #self.state = self.value[0] + self.price + self.qty + self.ta
-            self.state = np.hstack((self.value, self.price, self.qty, self.ta))
-
+            self.price = self.data.loc[:, ['adj_close']].values[0]
+            self.ta = self.data.loc[:, self.TA_columns].values[0]
+            self.state = np.concatenate((self.value, self.price, self.qty, self.ta))
             end_total_asset = self.value + np.sum(self.price * self.qty)
-            print("reward", self.value,  begin_total_asset[0], end_total_asset, self.reward)
 
             self.reward = (end_total_asset - begin_total_asset)[0]
-
             self.portfolio_value.append(end_total_asset[0])
-            # self.net_portfolio_value.append(end_total_asset[0]+self.commission_paid[self.day-1])
-            # print("end_total_asset",end_total_asset)
 
         return self.state, self.reward, self.terminal, {}
 
     def render(self, mode='human'):
-        # print("self.value", self.value,)
-
-        # print("Step: {:05} | Date : {} | Cash: {:8.2f} | Portfolio: {:8.2f} | Reward: {:>4.2f}".format(
-        #    self.day, self.dates[self.day], self.value[0], self.portfolio_value[-1], self.reward))
-        # print(np.shape(self.reward))
-
-        # self.commission_paid is negative
-        #net_reward = self.portfolio_value[-1] + self.commission_paid[self.day-1]
-        #print("self.transaction", self.transaction)
         line = np.array([self.modelName, self.addTA, self.day, str(self.dates[self.day]), str(
             self.value[0]), str(self.portfolio_value[-1]), self.reward,
             self.commission_paid[self.day-1],
             self.transaction["buy_amt"], self.transaction["buy_commission"],
             self.transaction["sell_amt"], self.transaction["sell_commission"]
         ])
-        # print("Step", self.day, line)
-
-        #self.ledger.append(line + self.price + self.qty)
-        self.ledger.append(np.hstack((line, self.price, self.qty)))
+        display = np.concatenate((line, self.price, self.qty))
+        self.ledger.append(display)
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)

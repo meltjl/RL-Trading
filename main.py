@@ -1,5 +1,5 @@
-from env.StockEnv import StockEnv
 from env.StockEnvPlayer import StockEnvPlayer
+
 import gym
 import numpy as np
 import pandas as pd
@@ -15,27 +15,12 @@ from datetime import datetime
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn import preprocessing
 
-from stable_baselines import A2C, ACKTR, DQN, DDPG, SAC, PPO1, PPO2, TD3, TRPO
+from stable_baselines import PPO2  # ,A2C, ACKTR, DQN, DDPG, SAC, PPO1,  TD3, TRPO
 from stable_baselines.ddpg import NormalActionNoise
 from stable_baselines.common.identity_env import IdentityEnv, IdentityEnvBox
 from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.ddpg import AdaptiveParamNoiseSpec
-from stable_baselines.ddpg.policies import LnMlpPolicy
-# from stable_baselines.bench import Monitor
-
-# This is sample trading env from
-# paper   : 01B) https://towardsdatascience.com/visualizing-stock-trading-agents-using-matplotlib-and-gym-584c992bc6d4
-# code :    01B) https://github.com/notadamking/Stock-Trading-Visualization
-# but performance is really bad. Makes 38% losses
-# from env.StockTradingEnv import StockTradingEnv
-
-
-# this is from xiong's code. renamed zxStock_env into StockEnv but use stable_baselines concept as per 01B paper
-
-
-# tf.set_random_seed(42)
 
 seed = 42
 lr = 1e-2
@@ -227,6 +212,7 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         s = splits.split(dates)
 
     loop = 0
+
     for train_date_index, test_date_index in s:
         print("loop", loop)
         train = df[df.date.isin(dates[train_date_index])]
@@ -236,21 +222,11 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         start_test_dates[loop] = min(test.date)
         end_test_dates[loop] = max(test.date)
 
-        # normalize
-        # train = pd.DataFrame(np.concatenate((train.iloc[:, :3], preprocessing.scale(train.iloc[:, 3:])), axis=1), columns=df.columns)
-        # print(train.head())
-        # test = pd.DataFrame(np.concatenate((test.iloc[:, :3], preprocessing.scale(test.iloc[:, 3:])), axis=1), columns=df.columns)
-
-        # add noise
-        # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
         n_actions = 1
         action_noise = NormalActionNoise(mean=np.zeros(
             n_actions), sigma=0.1 * np.ones(n_actions))
         global env
 
-        # choose environment
-        # env = StockTradingEnv(train_df)
-        # vectorized environments allow to easily multiprocess training.
         title = runtimeId + "_Train lr=" + \
             str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
@@ -259,47 +235,23 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         # Automatically normalize the input features
         env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
-        # https://github.com/hill-a/stable-baselines/blob/master/tests/test_identity.py
-        # model = DDPG("MlpPolicy", env, gamma=0.1, buffer_size=int(1e6))
-        # model = PPO2(MlpPolicy, env, verbose=1, learning_rate=lr)
-        # model = algo(MlpPolicy, env, verbose=1, learning_rate=lr, seedy=seed)
-        # model = LEARN_FUNC_DICT[model_name](env)
-
         model = algo(MlpPolicy, env, seedy=seed, gamma=g, n_steps=128,
                      ent_coef=0.01, learning_rate=lr, vf_coef=0.5, max_grad_norm=0.5,
                      lam=0.95, nminibatches=4, noptepochs=4, cliprange=cliprange,
                      cliprange_vf=None,  # tensorboard_log="./tensorlog",
                      _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, )
 
-        # Add some param noise for exploration
-        #param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0.1)
-        # Because we use parameter noise, we should use a MlpPolicy with layer normalization
-        #model = DDPG(LnMlpPolicy, env, param_noise=param_noise, verbose=0)
-
         # Random Agent, before training
-        print("*** Agent before learning ***")
+        print("\n*** Agent before learning ***")
         steps = len(np.unique(train.date))
         before[loop] = evaluate(model, num_steps=steps)
 
-        print("*** Set agent to learn ***")
         model.learn(total_timesteps=round(steps))
 
-        print("*** Evaluate the trained agent ***")
+        print("\n*** Evaluate the trained agent ***")
         after[loop] = evaluate(model, num_steps=steps)
 
-        # Save the agent
-        # model.save("model/" + runtimeId)
-
-        # delete trained model to demonstrate loading. This also frees u memory
-        # del model
-
-        # close env
-        # env.close()
-
-        # load model - seems like it does not use seed on reloaded model
-        # model = algo.load("model/" + runtimeId)
-
-        print("*** Run agent on unseen data ***")
+        print("\n*** Run agent on unseen data ***")
         title = runtimeId + "_Test lr=" + \
             str(lr) + ", cliprange=" + str(cliprange) + ", commission=" + str(commission)
         env = DummyVecEnv(
@@ -308,11 +260,13 @@ def train(algo, df, model_name, uniqueId, lr=None, gamma=None, noBacktest=1, cut
         steps = len(np.unique(test.date))
         backtest[loop] = evaluate(model, num_steps=steps)
 
+        del model
+        env.close()
+
         loop += 1
 
     # display result on screen
     for i in range(noBacktest):
-        print("PORTFOLIO", uniqueId)
         print("\ntrain_dates:", min(df.date), train_dates[i])
         print("test_dates:", start_test_dates[i], end_test_dates[i])
         print("backtest {} : SUM reward : before | after | backtest : {: 8.2f} | {: 8.2f} | {: 8.2f}".format(
@@ -360,14 +314,13 @@ def chkArgs(argv):
         config = json.load(f)
 
     df = get_data(config, portfolio=portfolio, refreshData=refreshData, addTA=addTA)
-    # print(df.head())
-    # print(df.info())
+
     print("\n\n\n\n\n\n\n\n\n")
+
     # really bad way to choose TA.
-    # if addTA == 'Y':
-    # df = df[['date', 'ticker', 'adj_close', 'MOM', 'RSI', 'APO', 'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE',
-    #     'INPHASE', 'QUADRATURE', 'PPO', 'MACD', 'MACD_SIG', 'MACD_HIST', 'CMO', 'ROCP', 'TRIX', 'EMA', 'TEMA']]
-    #df = df[['date', 'ticker', 'adj_close', 'QUADRATURE', 'MACD_HIST', 'RSI']]
+    if addTA == 'Y':
+        df = df[['date', 'ticker', 'adj_close', 'MOM', 'RSI', 'APO', 'HT_DCPERIOD', 'HT_DCPHASE', 'SINE', 'LEADSINE',
+                 'INPHASE', 'QUADRATURE', 'PPO', 'MACD', 'MACD_SIG', 'MACD_HIST', 'CMO', 'ROCP', 'TRIX', 'EMA', 'TEMA']]
 
     portfolio_name = config["portfolios"][portfolio]["name"]
     commission = config["portfolios"][portfolio]["commission"]
@@ -377,17 +330,6 @@ def chkArgs(argv):
     else:
         cutoff_date = ''
         backtest = 4 if backtest == '' else backtest
-
-    '''
-    policy = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy,
-        'lnlstm': CnnLnLstmPolicy, 'mlp': MlpPolicy}[policy]
-    model = PPO2(policy=policy, env=env, n_steps=n_steps, nminibatches=nminibatches,
-        lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
-        learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
-                     '''
-
-    # model_name = "ddpg_0.5"
-    # algo = DDPG
 
     uniqueId = model_name + "_" + portfolio_name + "_" + datetime.now().strftime("%Y%m%d %H%M")
 
@@ -425,23 +367,5 @@ def testSplit(df):
         print("test ", min(test.date), max(test.date))
 
 
-# Hyperparameters for learning identity for each RL model
-LEARN_FUNC_DICT = {
-    'a2c': lambda e: A2C(policy="MlpPolicy", learning_rate=lr, n_steps=1, gamma=0.7, env=e),
-    # 'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=5e-4, n_steps=1),
-    'acktr': lambda e: ACKTR(policy="MlpPolicy", env=e, learning_rate=lr, n_steps=1),
-    # 'ppo1': lambda e: PPO1(policy="MlpPolicy", env=e, lam=0.5, optim_batchsize=16, optim_stepsize=1e-3),
-    'ppo2': lambda e: PPO2(policy="MlpPolicy", seedy=seed, env=e, learning_rate=1e-2, lam=0.95),
-    'trpo': lambda e: TRPO(policy="MlpPolicy", env=e, max_kl=0.05, lam=0.7),
-    'ddpg': lambda e: DDPG(policy="MlpPolicy", env=e, gamma=0.1, buffer_size=int(1e6)),
-}
-
-
 if __name__ == "__main__":
-    # file = "./data/xiong.csv"
-    # df = pd.read_csv(file, parse_dates=['date'], date_parser=dateparse1).fillna(
-    #    method='ffill').fillna(method='bfill')
-    # df = df.loc[df.ticker.isin(["002066", "600000", "600962", "000985", "000862"])]
-    # df = df.sort_values(by=["date", "ticker"])
-    # df.to_csv("./data/portfolio9.csv")
     chkArgs(sys.argv[1:])
