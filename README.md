@@ -14,9 +14,30 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 <hr/>
 # Results
 <figure>
-  <img src="./figure1.png" alt="Trulli" style="width:100%">
+  <img src="https://github.com/meltjl/RL-Trading/tree/master/result/Figure1.png" alt="Figure1" style="width:100%">
   <figcaption>Fig.1 - Comparison of before and after training data set using PPO2 with different clipping (0% commission and without technical indicators)</figcaption>
 </figure>
+
+<figure>
+  <img src="https://github.com/meltjl/RL-Trading/tree/master/result/Figure2.png" alt="Figure1" style="width:100%">
+  <figcaption>Fig.2 - Comparison of portfolio value when technical indicators are used (0% commission)</figcaption>
+</figure>
+
+<figure>
+  <img src="https://github.com/meltjl/RL-Trading/tree/master/result/Figure3.png" alt="Figure3" style="width:100%">
+  <figcaption>Fig.3 - Buy and Sell activity for test data (based on Run#1 – No technical indicators)</figcaption>
+</figure>
+
+<figure>
+  <img src="https://github.com/meltjl/RL-Trading/tree/master/result/Figure4.png" alt="Figure4" style="width:100%">
+  <figcaption>Fig.4 - Buy and Sell activity for test data (based on Run#4 – With technical indicators)</figcaption>
+</figure>
+
+<figure>
+  <img src="https://github.com/meltjl/RL-Trading/tree/master/result/Figure5.png" alt="Figure5" style="width:100%">
+  <figcaption>Fig.5 - Comparison of Test result using PPO2 algorithm under various commission rate.</figcaption>
+</figure>
+
 
 <hr/>
 
