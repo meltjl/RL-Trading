@@ -1,6 +1,6 @@
 
-
-# Overview
+# Reinforcement Learning in Trading
+## Overview
 The idea of predicting financial instruments has been the goal of many due in part to the
 expectation that predicting these instruments can prove lucrative. Whilst the accurate
 prediction of price seemed reasonable, they do not necessarily guarantee positive returns due
@@ -12,7 +12,7 @@ a suitable strategy that maximizes profit.
 In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Stock_Trading'>codes</a> from <a href='https://arxiv.org/abs/1811.07522v1'>Practical Deep Reinforcement Learning Approach for Stock Trading, Xiong et al (2018)</a> but applied the <a href='https://arxiv.org/abs/1707.06347'>Proximal Policy Optimization Algorithmm, Schulman et al (2017)</a>. The model achieved an annual return of 34.06%. We also found that adding technical indicators altered the agent’s trading activities significantly.
 
 
-# Results
+## Results
 <figure>
   <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure1.png" alt="Figure1" width="75%" height="75%">
   <figcaption>Fig.1 - Comparison of before and after training data set using PPO2 with different clipping (0% commission and without technical indicators)</figcaption>
@@ -41,17 +41,17 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 
 <hr>
 
-# Environment
-## Create virtual environment
+## Environment
+### Create virtual environment
 <pre>$ python3 -m venv RL_Trading</pre>
 
-## Activate environment
+### Activate environment
 <pre>$ source RL_Trading/bin/activate</pre>
 
-## Install all dependent libraries
+### Install all dependent libraries
 <pre>(RL_Trading) $ pip install -r requirements.txt</pre>
 
-## Reproducability
+### Reproducability
 The following files were edited to ensure reproducibility. Copy the files from
 <ul>
 <li>/files To Overwrite/stable_baselines/common/policies.py</li>
@@ -65,7 +65,7 @@ to your virtual environment.
 </ul>
 
 
-## Data
+### Data
 1. At bare minimum, data set must contain at least three columns with the columns name and date format defined exactly below:
 ticker	date	    adj_close
 AAPL	2000-01-03	111.9375
@@ -94,7 +94,7 @@ AXP	    2000-01-03	157.25
     </pre>
 
 
-## Running the code
+### Running the code
 Example 1 : To run portfolio4 without technical indicators
 
 <pre>$ python main.py -p 4 -t N</pre>
