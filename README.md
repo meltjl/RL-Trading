@@ -25,12 +25,12 @@ In this project, we adapted the <a href='https://github.com/hust512/DQN-DDPG_Sto
 <hr>
 <figure>
   <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure3.png" alt="Figure3"  width="75%" height="75%">
-  <figcaption>Fig.3 - Buy and Sell activity for test data (based on Run#1 – No technical indicators)</figcaption>
+  <figcaption>Fig.3 - Buy and Sell activity for test data (No technical indicators) shows the lack of buy/sell actvities</figcaption>
 </figure>
 <br><br><br>
 <figure>
   <img src="https://github.com/meltjl/RL-Trading/blob/master/result/Figure4.png" alt="Figure4" width="75%" height="75%">
-  <figcaption>Fig.4 - Buy and Sell activity for test data (based on Run#4 – With technical indicators)</figcaption>
+  <figcaption>Fig.4 - Buy and Sell activity for test data (With technical indicators) shows increased buy/sell activities</figcaption>
 </figure>
 <br><br><br>
 <hr>
