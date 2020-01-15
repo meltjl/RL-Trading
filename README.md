@@ -1,5 +1,14 @@
 
 # Reinforcement Learning in Trading
+This project is completed as part of the Master of Data Science degree at the University of Sydney, Australia. 
+<ul>
+<li>Supervisor : <a href='https://sydney.edu.au/engineering/about/our-people/academic-staff/matloob-khushi.html'>Dr Matloob Khushi, Director, Master of Data Science School of Computer Science</a>.</li>
+
+<li>Unit of Study : <a href='https://cusp.sydney.edu.au/students/view-unit-page/alpha/COMP5707'>COMP5707: Information Technology Capstone A</a></li>
+
+<li>Date of completion : Dec 2019</li>
+<ul>
+
 ## Overview
 The idea of predicting financial instruments has been the goal of many due in part to the
 expectation that predicting these instruments can prove lucrative. Whilst the accurate
