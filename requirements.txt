@@ -76,7 +76,7 @@ stable-baselines==2.7.0
 TA-Lib==0.4.17
 tensorboard==1.14.0
 tensorflow-estimator==1.14.0
-tensorflow-gpu==1.14.0
+tensorflow-gpu==1.15.2
 termcolor==1.1.0
 tornado==6.0.3
 traitlets==4.3.2
