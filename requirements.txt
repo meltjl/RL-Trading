@@ -42,7 +42,7 @@ mpi4py==3.0.2
 mpl-finance==0.10.0
 ndg-httpsclient==0.5.1
 numpy==1.17.0
-opencv-python==4.1.1.26
+opencv-python==4.2.0.32
 pandas==0.25.0
 pandas-datareader==0.7.4
 parso==0.5.1
